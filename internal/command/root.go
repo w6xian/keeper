@@ -7,7 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"sync"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"keeper/internal/config"
@@ -15,8 +16,14 @@ import (
 	"keeper/internal/service"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/w6xian/sloth"
 	"go.uber.org/zap"
+)
+
+var (
+	appCommand string
+	appArgs    []string
 )
 
 var rootCmd = &cobra.Command{
@@ -24,9 +31,6 @@ var rootCmd = &cobra.Command{
 	Short: "A daemon process manager",
 	Long:  `Keeper is a daemon process that manages an app process via WebSocket RPC.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO 确保 keeper守护程序只运行一次（写在一个特定文件，兼容windows，linux，macos）
-		// TODO 写个文件，记录pid,然后独占地打开这个文件，文件不存在或能删除说明没有运行
-		// TODO windows写在当前目录，linux/macos写在/var/run/keeper/keeper.pid
 		runKeeper()
 	},
 }
@@ -40,10 +44,78 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVar(&appCommand, "app-command", "", "Application command to run")
+	rootCmd.PersistentFlags().StringSliceVar(&appArgs, "app-args", []string{}, "Application arguments")
+
+	viper.BindPFlag("app.command", rootCmd.PersistentFlags().Lookup("app-command"))
+	viper.BindPFlag("app.args", rootCmd.PersistentFlags().Lookup("app-args"))
+
 	rootCmd.AddCommand(AppCmd)
+	rootCmd.AddCommand(PprofCmd)
+}
+
+func pidFilePath() string {
+	if runtime.GOOS == "windows" {
+		return "keeper.pid"
+	}
+	return "/var/run/keeper/keeper.pid"
+}
+
+func ensureSingleInstance() (func(), error) {
+	pidFile := pidFilePath()
+
+	if runtime.GOOS != "windows" {
+		dir := filepath.Dir(pidFile)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, fmt.Errorf("failed to create pid directory %s: %w", dir, err)
+		}
+	}
+
+	if info, err := os.Stat(pidFile); err == nil {
+		if !info.IsDir() {
+			if err := os.Remove(pidFile); err != nil {
+				return nil, fmt.Errorf("pid file %s exists and cannot be removed: %w", pidFile, err)
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to stat pid file %s: %w", pidFile, err)
+	}
+
+	f, err := os.OpenFile(pidFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil, fmt.Errorf("pid file %s already exists", pidFile)
+		}
+		return nil, err
+	}
+
+	_, writeErr := fmt.Fprintf(f, "%d", os.Getpid())
+	closeErr := f.Close()
+
+	if writeErr != nil {
+		os.Remove(pidFile)
+		return nil, writeErr
+	}
+
+	if closeErr != nil {
+		os.Remove(pidFile)
+		return nil, closeErr
+	}
+
+	cleanup := func() {
+		os.Remove(pidFile)
+	}
+
+	return cleanup, nil
 }
 
 func runKeeper() {
+	cleanup, err := ensureSingleInstance()
+	if err != nil {
+		log.Fatalf("Failed to ensure single instance: %v", err)
+	}
+	defer cleanup()
+
 	fmt.Printf("[Keeper] Starting daemon... PID: %d\n", os.Getpid())
 
 	// 0. Load Config and Init Logger
@@ -76,6 +148,13 @@ func runKeeper() {
 	ln.Close() // Release port for sloth
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	wsPath := "/ws"
+	// websocket监听addr,path写到指定文件，方法WriteWsInfoToFile
+	// 将 WebSocket 监听地址与路径写入文件，供子进程读取
+	wsInfoFile := "keeper.ws"
+	data := fmt.Sprintf("addr: %s\npath: %s\n", addr, wsPath)
+	if err := os.WriteFile(wsInfoFile, []byte(data), 0644); err != nil {
+		logger.GetLogger().Fatal("Failed to write WebSocket info file", zap.Error(err))
+	}
 
 	// 2. Start Sloth Server
 	// Create server logic container (ClientRpc handles server-side logic for incoming clients)
@@ -102,34 +181,45 @@ func runKeeper() {
 
 	// Start listening (in goroutine as it might block)
 	// TODO 用waitgroup等待sloth启动完成
-	var wg sync.WaitGroup
-	defer wg.Done()
+
 	go func() {
-		wg.Add(1)
 		// Note: Sloth's Listen might not return error based on doc, but let's check compilation
 		svrConn.Listen("tcp", addr)
 	}()
-	wg.Wait()
-	// TODO 写个文件，记录ws信息，YAML格式，包含addr,path
 
 	// Wait a bit for server to start
 	time.Sleep(200 * time.Millisecond)
 	logger.GetLogger().Info("RPC Server listening", zap.String("addr", addr), zap.String("path", wsPath))
-	// 3. Start Child Process (keeper app)
-	exe, err := os.Executable()
-	if err != nil {
-		logger.GetLogger().Fatal("Failed to get executable path", zap.Error(err))
+	// 3. Start Child Process
+	var cmdName string
+	var cmdArgs []string
+
+	if config.GlobalConfig.App.Command != "" {
+		// Use configured app
+		cmdName = config.GlobalConfig.App.Command
+		cmdArgs = config.GlobalConfig.App.Args
+	} else {
+		// Default: keeper app
+		exe, err := os.Executable()
+		if err != nil {
+			logger.GetLogger().Fatal("Failed to get executable path", zap.Error(err))
+		}
+		cmdName = exe
+		cmdArgs = []string{"app"}
 	}
 
-	logger.GetLogger().Info("Launching 'app' subcommand", zap.String("exe", exe))
+	// Append port and path arguments
+	finalArgs := append(cmdArgs, "--port", addr, "--path", wsPath)
 
-	cmd := exec.Command(exe, "app", "--port", addr, "--path", wsPath)
+	logger.GetLogger().Info("Launching child process", zap.String("cmd", cmdName), zap.Strings("args", finalArgs))
+
+	cmd := exec.Command(cmdName, finalArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Start(); err != nil {
-		logger.GetLogger().Fatal("Failed to start app process", zap.Error(err))
+		logger.GetLogger().Fatal("Failed to start child process", zap.Error(err))
 	}
 
 	logger.GetLogger().Info("App process started", zap.Int("pid", cmd.Process.Pid))

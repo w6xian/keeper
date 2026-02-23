@@ -1,2 +1,10 @@
 /vendor
 run/keeper/keeper.exe
+run/keeper/logs/keeper.log
+*.log
+*.log
+*.ws
+*.pid
+*.log
+run/keeper/logs/keeper.log
+/run/keeper/logs

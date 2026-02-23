@@ -9,14 +9,20 @@ import (
 
 type Config struct {
 	Log LogConfig `mapstructure:"log"`
+	App AppConfig `mapstructure:"app"`
+}
+
+type AppConfig struct {
+	Command string   `mapstructure:"command"`
+	Args    []string `mapstructure:"args"`
 }
 
 type LogConfig struct {
 	Level      string `mapstructure:"level"`
 	Filename   string `mapstructure:"filename"`
-	MaxSize    int    `mapstructure:"max_size"`    // MB
+	MaxSize    int    `mapstructure:"max_size"` // MB
 	MaxBackups int    `mapstructure:"max_backups"`
-	MaxAge     int    `mapstructure:"max_age"`     // Days
+	MaxAge     int    `mapstructure:"max_age"` // Days
 	Compress   bool   `mapstructure:"compress"`
 }
 

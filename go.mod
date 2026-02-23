@@ -1,11 +1,15 @@
 module keeper
 
-go 1.25.3
+go 1.26.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.8.0
+	github.com/spf13/viper v1.21.0
 	github.com/w6xian/sloth v0.2.5
+	github.com/yuin/gopher-lua v1.1.1
+	go.uber.org/zap v1.27.1
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
@@ -25,14 +29,10 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/w6xian/tlv v0.0.4 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
