@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"time"
 
+	"keeper/internal/registry"
+
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/sloth"
@@ -52,20 +54,90 @@ func runApp() {
 
 			time.Sleep(1 * time.Second)
 
+			// --- Registry Logic ---
+			instanceID := fmt.Sprintf("app-%d", os.Getpid())
+			serviceName := "app-service"
+
+			// 1. Register
+			fmt.Println("[App] Registering service...")
+			regReq := registry.RegisterRequest{
+				Instance: registry.ServiceInstance{
+					ID:   instanceID,
+					Name: serviceName,
+					Host: "127.0.0.1",
+					Port: 0, // Fake port for now
+					Tags: []string{"v1", "test"},
+				},
+			}
+			regRespBytes, err := serverRpc.Call(context.Background(), "registry.Register", regReq)
+			if err != nil {
+				fmt.Printf("[App] Register failed: %v\n", err)
+			} else {
+				fmt.Printf("[App] Register success: %s\n", string(regRespBytes))
+			}
+
+			// Start Heartbeat Loop
+			go func() {
+				ticker := time.NewTicker(5 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					_, err := serverRpc.Call(context.Background(), "registry.Heartbeat", registry.HeartbeatRequest{
+						ServiceName: serviceName,
+						InstanceID:  instanceID,
+					})
+					if err != nil {
+						fmt.Printf("[App] Heartbeat failed: %v\n", err)
+						// Retry registration
+						serverRpc.Call(context.Background(), "registry.Register", regReq)
+					}
+				}
+			}()
+			// ----------------------
+
 			// Call RPC
 			// Call(ctx context.Context, mtd string, arg ...any) ([]byte, error)
 			i := 1
 			for {
+				// 1. Hello
 				resp, err := serverRpc.Call(context.Background(), "keeper.SayHello", fmt.Sprintf("hello iam app %d", i))
 				if err != nil {
 					fmt.Println("[App] RPC Call Failed:", err)
 				} else {
-					// The response is []byte, assuming string
-					// Note: sloth uses an Encoder/Decoder. Default might be gob or json.
-					// If the server returns string "Hello AppProcess", the []byte might contain serialization overhead if it's gob.
-					// But for now let's just print it.
 					fmt.Println("[App] RPC Response:", string(resp))
 				}
+
+				// 2. Log
+				_, err = serverRpc.Call(context.Background(), "log.Info", fmt.Sprintf("App log info %d", i))
+				if err != nil {
+					fmt.Println("[App] Log Info Failed:", err)
+				}
+				// Only log error occasionally to avoid spam
+				if i%10 == 0 {
+					_, err = serverRpc.Call(context.Background(), "log.Error", fmt.Sprintf("App log error %d", i))
+					if err != nil {
+						fmt.Println("[App] Log Error Failed:", err)
+					}
+				}
+
+				// 3. Script
+				if i%5 == 0 {
+					luaScript := fmt.Sprintf("print('Hello from Lua! i=%d')", i)
+					_, err = serverRpc.Call(context.Background(), "script.Run", luaScript)
+					if err != nil {
+						fmt.Println("[App] Script Run Failed:", err)
+					}
+				}
+
+				// 4. Discovery Test
+				if i%5 == 0 {
+					discResp, err := serverRpc.Call(context.Background(), "registry.Discovery", registry.DiscoveryRequest{
+						ServiceName: serviceName,
+					})
+					if err == nil {
+						fmt.Printf("[App] Discovery Result: %s\n", string(discResp))
+					}
+				}
+
 				time.Sleep(5 * time.Second)
 				i++
 			}

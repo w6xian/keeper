@@ -7,12 +7,16 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 	"time"
 
+	"keeper/internal/config"
+	"keeper/internal/logger"
 	"keeper/internal/service"
 
 	"github.com/spf13/cobra"
 	"github.com/w6xian/sloth"
+	"go.uber.org/zap"
 )
 
 var rootCmd = &cobra.Command{
@@ -20,6 +24,9 @@ var rootCmd = &cobra.Command{
 	Short: "A daemon process manager",
 	Long:  `Keeper is a daemon process that manages an app process via WebSocket RPC.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO 确保 keeper守护程序只运行一次（写在一个特定文件，兼容windows，linux，macos）
+		// TODO 写个文件，记录pid,然后独占地打开这个文件，文件不存在或能删除说明没有运行
+		// TODO windows写在当前目录，linux/macos写在/var/run/keeper/keeper.pid
 		runKeeper()
 	},
 }
@@ -39,10 +46,31 @@ func init() {
 func runKeeper() {
 	fmt.Printf("[Keeper] Starting daemon... PID: %d\n", os.Getpid())
 
+	// 0. Load Config and Init Logger
+	if err := config.LoadConfig(); err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	loggerConfig := logger.Config{
+		Level:      config.GlobalConfig.Log.Level,
+		Filename:   config.GlobalConfig.Log.Filename,
+		MaxSize:    config.GlobalConfig.Log.MaxSize,
+		MaxBackups: config.GlobalConfig.Log.MaxBackups,
+		MaxAge:     config.GlobalConfig.Log.MaxAge,
+		Compress:   config.GlobalConfig.Log.Compress,
+	}
+
+	if err := logger.InitLogger(loggerConfig); err != nil {
+		log.Fatalf("Failed to init logger: %v", err)
+	}
+	defer logger.GetLogger().Sync()
+
+	logger.GetLogger().Info("Keeper started", zap.Int("pid", os.Getpid()))
+
 	// 1. Get random port
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
-		log.Fatal(err)
+		logger.GetLogger().Fatal("Failed to listen", zap.Error(err))
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close() // Release port for sloth
@@ -57,27 +85,43 @@ func runKeeper() {
 
 	// Register RPC Service
 	if err := svrConn.RegisterRpc("keeper", new(service.HelloService), ""); err != nil {
-		log.Fatalf("Failed to register RPC: %v", err)
+		logger.GetLogger().Fatal("Failed to register RPC", zap.Error(err))
+	}
+	// Register Log Service
+	if err := svrConn.RegisterRpc("log", new(service.LogService), ""); err != nil {
+		logger.GetLogger().Fatal("Failed to register Log RPC", zap.Error(err))
+	}
+	// Register Registry Service
+	if err := svrConn.RegisterRpc("registry", service.NewRegistryService(), ""); err != nil {
+		logger.GetLogger().Fatal("Failed to register Registry RPC", zap.Error(err))
+	}
+	// Register Script Service
+	if err := svrConn.RegisterRpc("script", service.NewScriptService(), ""); err != nil {
+		logger.GetLogger().Fatal("Failed to register Script RPC", zap.Error(err))
 	}
 
 	// Start listening (in goroutine as it might block)
+	// TODO 用waitgroup等待sloth启动完成
+	var wg sync.WaitGroup
+	defer wg.Done()
 	go func() {
+		wg.Add(1)
 		// Note: Sloth's Listen might not return error based on doc, but let's check compilation
 		svrConn.Listen("tcp", addr)
 	}()
+	wg.Wait()
+	// TODO 写个文件，记录ws信息，YAML格式，包含addr,path
 
 	// Wait a bit for server to start
 	time.Sleep(200 * time.Millisecond)
-
-	fmt.Printf("[Keeper] RPC Server listening on %s (Path: %s)\n", addr, wsPath)
-
+	logger.GetLogger().Info("RPC Server listening", zap.String("addr", addr), zap.String("path", wsPath))
 	// 3. Start Child Process (keeper app)
 	exe, err := os.Executable()
 	if err != nil {
-		log.Fatalf("[Keeper] Failed to get executable path: %v", err)
+		logger.GetLogger().Fatal("Failed to get executable path", zap.Error(err))
 	}
 
-	fmt.Printf("[Keeper] Launching 'app' subcommand: %s app --port %s --path %s\n", exe, addr, wsPath)
+	logger.GetLogger().Info("Launching 'app' subcommand", zap.String("exe", exe))
 
 	cmd := exec.Command(exe, "app", "--port", addr, "--path", wsPath)
 	cmd.Stdout = os.Stdout
@@ -85,10 +129,10 @@ func runKeeper() {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("[Keeper] Failed to start app process: %v", err)
+		logger.GetLogger().Fatal("Failed to start app process", zap.Error(err))
 	}
 
-	fmt.Printf("[Keeper] App process started with PID: %d\n", cmd.Process.Pid)
+	logger.GetLogger().Info("App process started", zap.Int("pid", cmd.Process.Pid))
 
 	// 4. Wait for signals
 	stop := make(chan os.Signal, 1)
@@ -100,7 +144,7 @@ func runKeeper() {
 	}()
 
 	<-stop
-	fmt.Println("[Keeper] Shutting down...")
+	logger.GetLogger().Info("Shutting down...")
 
 	if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
 		cmd.Process.Kill()
