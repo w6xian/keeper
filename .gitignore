@@ -8,3 +8,4 @@ run/keeper/logs/keeper.log
 *.log
 run/keeper/logs/keeper.log
 /run/keeper/logs
+/run/keeper/logs
