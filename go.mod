@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.21.0
-	github.com/w6xian/sloth v0.2.5
+	github.com/w6xian/sloth v0.2.6
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

@@ -79,8 +79,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/w6xian/sloth v0.2.5 h1:PXGHyYzEDsjhUJ872bxcs84o2LkSxKVbGbNi3fMDinY=
-github.com/w6xian/sloth v0.2.5/go.mod h1:cXcsP4JaIdmgmCVmQyb/DUXYOugnJDSgVh10n0DxLGI=
+github.com/w6xian/sloth v0.2.6 h1:4XZeNekS33b0Br6331hoJyp5N/xeGPqrAuFne1Ul9ug=
+github.com/w6xian/sloth v0.2.6/go.mod h1:cXcsP4JaIdmgmCVmQyb/DUXYOugnJDSgVh10n0DxLGI=
 github.com/w6xian/tlv v0.0.4 h1:6XFfSPkhyppCmRWn73/YRHoUpRRyfPiK6sSdde3zAx8=
 github.com/w6xian/tlv v0.0.4/go.mod h1:m/e+BcqUOQJg2mfupU2d4vMkadHGYXYqREyHoRb+coM=
 github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=

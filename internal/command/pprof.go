@@ -7,8 +7,9 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
+	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/sloth"
 	"github.com/w6xian/sloth/nrpc/wsocket"
@@ -65,29 +66,64 @@ var PprofCmd = &cobra.Command{
 
 		serverRpc := sloth.DefaultClient()
 		cliConn := sloth.ClientConn(serverRpc)
-
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
 		go cliConn.StartWebsocketClient(
+			wsocket.WithClientHandle(&tHandler{serverRpc, wg}),
 			wsocket.WithClientUriPath(wsInfo.Path),
 			wsocket.WithClientServerUri(wsInfo.Addr),
 		)
-
-		time.Sleep(1 * time.Second)
-
-		resp, err := serverRpc.Call(context.Background(), "pprof.Services")
-		if err != nil {
-			log.Fatalf("Call pprof.Services failed: %v", err)
-		}
-
-		var info map[string][]string
-		if err := json.Unmarshal(resp, &info); err != nil {
-			log.Fatalf("Unmarshal PprofInfo response failed: %v", err)
-		}
-
-		for name, values := range info {
-			fmt.Printf("%s:\n", name)
-			for _, v := range values {
-				fmt.Printf("  %s\n", v)
-			}
-		}
+		wg.Wait()
 	},
+}
+
+// Handler handles client-side WebSocket events
+type tHandler struct {
+	server *sloth.ServerRpc
+	wg     *sync.WaitGroup
+}
+
+// OnClose is called when connection is closed
+func (h *tHandler) OnClose(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient) error {
+	fmt.Println("OnClose:", ch.UserId)
+	return nil
+}
+
+// OnData handles received messages
+func (h *tHandler) OnData(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient, msgType int, message []byte) error {
+	if msgType == websocket.TextMessage {
+		fmt.Println("HandleMessage:", 1, string(message))
+	}
+
+	return nil
+}
+
+// OnError handles errors
+func (h *tHandler) OnError(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient, err error) error {
+	fmt.Println("OnError:", err.Error())
+	return nil
+}
+
+// OnOpen is called when connection is opened
+func (h *tHandler) OnOpen(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient) error {
+	defer h.wg.Done()
+	fmt.Println("OnOpen:", ch.UserId, h.server)
+	resp, err := h.server.Call(context.Background(), "pprof.Services")
+	if err != nil {
+		log.Fatalf("Call pprof.Services failed: %v", err)
+	}
+
+	var info map[string][]string
+	if err := json.Unmarshal(resp, &info); err != nil {
+		log.Fatalf("Unmarshal PprofInfo response failed: %v", err)
+	}
+
+	for name, values := range info {
+		fmt.Printf("%s:\n", name)
+		for _, v := range values {
+			fmt.Printf("  %s\n", v)
+		}
+	}
+
+	return nil
 }
