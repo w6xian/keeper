@@ -11,7 +11,6 @@ import (
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/registry"
 
-	"github.com/gorilla/websocket"
 	"github.com/w6xian/sloth"
 	"github.com/w6xian/sloth/nrpc/wsocket"
 	"go.uber.org/zap"
@@ -24,13 +23,10 @@ type Dog struct {
 	clientRpc  *sloth.ServerRpc
 	clientConn *sloth.Connect
 	Name       string
+	Watcher    IWatcher
 }
 
-func NewDog(name, addr, wsPath string) *Dog {
-	if name == "" {
-		name = "dog"
-	}
-
+func NewDog(addr, wsPath string, options ...DogOption) *Dog {
 	loggerConfig := logger.Config{
 		Level:      config.GlobalConfig.Log.Level,
 		Filename:   config.GlobalConfig.Log.Filename,
@@ -47,15 +43,24 @@ func NewDog(name, addr, wsPath string) *Dog {
 	logger.GetLogger().Info("Dog started", zap.Int("pid", os.Getpid()))
 
 	d := &Dog{
-		logger: logger.GetLogger(),
-		addr:   addr,
-		wsPath: wsPath,
-		Name:   name,
+		logger:  logger.GetLogger(),
+		addr:    addr,
+		wsPath:  wsPath,
+		Name:    "dog",
+		Watcher: nil,
 	}
+
+	for _, opt := range options {
+		opt(d)
+	}
+
 	// Client logic container (ServerRpc handles client-side logic for outgoing requests)
 	d.clientRpc = sloth.DefaultClient()
 	// Connection manager
 	d.clientConn = sloth.ClientConn(d.clientRpc)
+	if d.Watcher != nil {
+		d.clientConn.Register("dog", d.Watcher, d.Name)
+	}
 
 	return d
 }
@@ -63,7 +68,6 @@ func NewDog(name, addr, wsPath string) *Dog {
 func (d *Dog) KeepAlive() error {
 	// Dial
 	go d.clientConn.StartWebsocketClient(
-		wsocket.WithClientHandle(&Handler{}),
 		wsocket.WithClientUriPath(d.wsPath),
 		wsocket.WithClientServerUri(d.addr),
 	)
@@ -99,41 +103,5 @@ func (d *Dog) Stop() error {
 	} else {
 		fmt.Printf("[%s] Exit success: %s\n", d.Name, string(status))
 	}
-	return nil
-}
-
-// Handler handles client-side WebSocket events
-type Handler struct {
-	server *sloth.ServerRpc
-}
-
-// OnClose is called when connection is closed
-func (h *Handler) OnClose(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient) error {
-	fmt.Println("OnClose:", ch.UserId)
-	return nil
-}
-
-// OnData handles received messages
-func (h *Handler) OnData(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient, msgType int, message []byte) error {
-	if msgType == websocket.TextMessage {
-		fmt.Println("HandleMessage:", 1, string(message))
-	}
-
-	return nil
-}
-
-// OnError handles errors
-func (h *Handler) OnError(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient, err error) error {
-	fmt.Println("OnError:", err.Error())
-	return nil
-}
-
-// OnOpen is called when connection is opened
-func (h *Handler) OnOpen(ctx context.Context, c *wsocket.LocalClient, ch *wsocket.WsChannelClient) error {
-	fmt.Println("OnOpen:", ch.UserId, h.server)
-	// Example of sending an initial message or setting state
-	// ch.UserId = 2
-	// ch.RoomId = 1
-	// h.server.Send(context.Background(), map[string]string{"user_id": "2", "room_id": "1"})
 	return nil
 }

@@ -22,9 +22,10 @@ type Door struct {
 	addr    string
 	wsPath  string
 	wg      *sync.WaitGroup
+	Name    string
 }
 
-func NewDoor(wg *sync.WaitGroup) *Door {
+func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
 	wg.Add(1)
 	loggerConfig := logger.Config{
 		Level:      config.GlobalConfig.Log.Level,
@@ -43,7 +44,12 @@ func NewDoor(wg *sync.WaitGroup) *Door {
 
 	d := &Door{
 		logger: logger.GetLogger(),
+		Name:   ".door",
 	}
+	for _, opt := range options {
+		opt(d)
+	}
+
 	// 1. Get random port
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -79,7 +85,7 @@ func NewDoor(wg *sync.WaitGroup) *Door {
 }
 
 func (d *Door) Start() error {
-	pidFile := pidFilePath(".door")
+	pidFile := pidFilePath(d.Name)
 	pidManager := NewPIDManager(pidFile)
 	if err := pidManager.WritePID(); err != nil {
 		d.logger.Fatal("Failed to write PID file", zap.Error(err))
@@ -104,7 +110,7 @@ func (d *Door) Execute(args ...string) string {
 	}
 	// Append port and path arguments
 	finalArgs := append(cmdArgs, "--port", d.addr, "--path", d.wsPath)
-	fmt.Println(cmdName, finalArgs)
+	// fmt.Println(cmdName, finalArgs)
 	cmd := exec.Command(cmdName, finalArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -113,16 +119,16 @@ func (d *Door) Execute(args ...string) string {
 	if err := cmd.Start(); err != nil {
 		logger.GetLogger().Fatal("Failed to start child process", zap.Error(err))
 	}
-	fmt.Println("------start")
+	// fmt.Println("------start")
 	if err := cmd.Wait(); err != nil {
 		logger.GetLogger().Fatal("Child process exited with error", zap.Error(err))
 	}
-	fmt.Println("------wait")
+	// fmt.Println("------wait")
 	return d.addr
 }
 
 func (d *Door) Stop() error {
-	pidFile := pidFilePath(".door")
+	pidFile := pidFilePath(d.Name)
 	if err := os.Remove(pidFile); err != nil {
 		logger.GetLogger().Error("failed to remove pid file %s: %w", zap.String("pidFile", pidFile), zap.Error(err))
 		return err

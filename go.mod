@@ -3,8 +3,8 @@ module github.com/w6xian/keeper
 go 1.26.0
 
 require (
-	github.com/gorilla/websocket v1.5.3
 	github.com/shirou/gopsutil v3.21.11+incompatible
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/w6xian/gua v0.0.2
 	github.com/w6xian/sloth v0.2.6
@@ -21,6 +21,8 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lithammer/shortuuid/v4 v4.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
