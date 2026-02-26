@@ -3,6 +3,7 @@ package logger
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,9 +17,9 @@ var Log *zap.Logger
 type Config struct {
 	Level      string
 	Filename   string
-	MaxSize    int  // MB
+	MaxSize    int // MB
 	MaxBackups int
-	MaxAge     int  // Days
+	MaxAge     int // Days
 	Compress   bool
 }
 
@@ -69,12 +70,16 @@ func InitLogger(cfg Config) error {
 }
 
 // GetLogger returns the global logger
+var once sync.Once
+
 func GetLogger() *zap.Logger {
-	if Log == nil {
-		// Fallback if not initialized
-		l, _ := zap.NewProduction()
-		return l
-	}
+	once.Do(func() {
+		if Log == nil {
+			// Fallback if not initialized
+			l, _ := zap.NewProduction()
+			Log = l
+		}
+	})
 	return Log
 }
 

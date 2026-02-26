@@ -3,7 +3,8 @@ package service
 import (
 	"context"
 	"errors"
-	"keeper/internal/registry"
+
+	"github.com/w6xian/keeper/registry"
 )
 
 type RegistryService struct {

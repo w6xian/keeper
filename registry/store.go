@@ -1,9 +1,10 @@
 package registry
 
 import (
-	"keeper/internal/logger"
 	"sync"
 	"time"
+
+	"github.com/w6xian/keeper/logger"
 
 	"go.uber.org/zap"
 )

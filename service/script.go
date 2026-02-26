@@ -2,20 +2,21 @@ package service
 
 import (
 	"context"
-	"keeper/internal/logger"
 	"sync"
 
-	lua "github.com/yuin/gopher-lua"
+	"github.com/w6xian/keeper/logger"
+
+	"github.com/w6xian/gua"
 	"go.uber.org/zap"
 )
 
 type ScriptService struct {
-	Engine *lua.LState
+	Engine *gua.Luax
 	mu     sync.Mutex
 }
 
 func NewScriptService() *ScriptService {
-	L := lua.NewState()
+	L := gua.NewState(gua.CallStackSize(1024))
 	return &ScriptService{
 		Engine: L,
 	}

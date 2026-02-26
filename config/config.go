@@ -17,6 +17,8 @@ type AppConfig struct {
 	Args    []string `mapstructure:"args"`
 }
 
+var GlobalConfig Config
+
 type LogConfig struct {
 	Level      string `mapstructure:"level"`
 	Filename   string `mapstructure:"filename"`
@@ -25,8 +27,6 @@ type LogConfig struct {
 	MaxAge     int    `mapstructure:"max_age"` // Days
 	Compress   bool   `mapstructure:"compress"`
 }
-
-var GlobalConfig Config
 
 func LoadConfig() error {
 	viper.SetConfigName("config")

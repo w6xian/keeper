@@ -3,7 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
-	"keeper/internal/logger"
+
+	"github.com/w6xian/keeper/logger"
 
 	"go.uber.org/zap"
 )
@@ -32,8 +33,8 @@ func (s *LogService) Error(ctx context.Context, msg string) (string, error) {
 
 // LogRequest is a struct for complex log requests if needed
 type LogRequest struct {
-	Level   string `json:"level"`
-	Message string `json:"message"`
+	Level   string                 `json:"level"`
+	Message string                 `json:"message"`
 	Fields  map[string]interface{} `json:"fields,omitempty"`
 }
 
