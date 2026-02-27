@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/w6xian/keeper/internal/pathx"
 )
 
 type Windows struct {
@@ -14,7 +16,7 @@ type Windows struct {
 }
 
 func (w *Windows) Install(binPath, token string) error {
-	binArg := fmt.Sprintf(`"%s" --token=%s`, binPath, token)
+	binArg := fmt.Sprintf(`"%s" --path="%s" --token=%s`, binPath, pathx.GetCurrentAbPath(), token)
 	if err := exec.Command("sc", "create", w.Name, "binPath=", binArg, "start=", "auto", "displayname=", w.DisplayName).Run(); err != nil {
 		return fmt.Errorf("创建服务失败: %w", err)
 	}

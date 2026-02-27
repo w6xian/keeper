@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/w6xian/keeper"
+	"github.com/w6xian/keeper/internal/pathx"
 	"github.com/w6xian/keeper/service"
 
 	"github.com/spf13/cobra"
@@ -20,7 +20,7 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "注册为系统服务（开机自启）",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		binPath := keeper.GetCaller()
+		binPath := pathx.GetCaller()
 		svc := service.New(server_name, "Go Keeper server3")
 		if err := svc.Install(binPath, "abcd4"); err != nil {
 			return fmt.Errorf("注册服务失败: %w", err)

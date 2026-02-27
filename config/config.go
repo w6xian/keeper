@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
+	"github.com/w6xian/keeper/internal/pathx"
 )
 
 type Config struct {
@@ -34,10 +36,10 @@ func LoadConfig() error {
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
+	rootPath := pathx.GetCurrentAbPath()
 	// Defaults
 	viper.SetDefault("log.level", "info")
-	viper.SetDefault("log.filename", "logs/keeper.log")
+	viper.SetDefault("log.filename", filepath.Join(rootPath, "/logs/keeper.log"))
 	viper.SetDefault("log.max_size", 100)
 	viper.SetDefault("log.max_backups", 3)
 	viper.SetDefault("log.max_age", 28)

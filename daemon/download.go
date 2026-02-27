@@ -12,12 +12,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/w6xian/keeper"
+	"github.com/w6xian/keeper/internal/pathx"
 )
 
 // EnsureApp 确保 app 已安装，未安装则自动下载
 func EnsureApp() (string, error) {
-	path := keeper.GetCurrentAbPath()
+	path := pathx.GetCurrentAbPath()
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}

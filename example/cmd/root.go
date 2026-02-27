@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ var (
 
 func init() {
 	rootCmd.Flags().StringVar(&token, "token", "", "Token for the app websocket server")
+	rootCmd.Flags().StringVar(&rootPath, "path", "", "Path of the root websocket server")
 
 }
 
@@ -39,8 +41,16 @@ var rootCmd = &cobra.Command{
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.Execute()
+			go func() {
+				wg.Wait()
+				logger.GetLogger().Info("All goroutines finished")
+				door.Stop()
+				os.Exit(0)
+			}()
 			// 4. Wait for signals
-			wg.Wait()
+			signalChan := make(chan os.Signal, 1)
+			signal.Notify(signalChan, os.Interrupt)
+			<-signalChan
 			logger.GetLogger().Info("Shutting down...")
 			fmt.Println("wg out")
 			door.Stop()
@@ -48,7 +58,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Try to run as service first
-		if err := service.Run("TestService3", runFunc); err != nil {
+		if err := service.Run(server_name, runFunc); err != nil {
 			logger.GetLogger().Fatal("Service run failed", zap.Error(err))
 		}
 	},

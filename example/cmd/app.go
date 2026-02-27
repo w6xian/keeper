@@ -9,13 +9,15 @@ import (
 )
 
 var (
-	appPort string
-	appPath string
+	appPort  string
+	appPath  string
+	rootPath string
 )
 
 func init() {
 	appCmd.Flags().StringVar(&appPort, "port", "", "Address of the app websocket server")
 	appCmd.Flags().StringVar(&appPath, "path", "", "Path of the app websocket server")
+	appCmd.Flags().StringVar(&rootPath, "root", "", "Path of the root websocket server")
 	rootCmd.AddCommand(appCmd)
 }
 

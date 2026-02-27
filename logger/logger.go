@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/w6xian/keeper/internal/pathx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -17,6 +18,7 @@ var Log *zap.Logger
 type Config struct {
 	Level      string
 	Filename   string
+	RootPath   string
 	MaxSize    int // MB
 	MaxBackups int
 	MaxAge     int // Days
@@ -26,14 +28,15 @@ type Config struct {
 // InitLogger initializes the zap logger with lumberjack rotation
 func InitLogger(cfg Config) error {
 	// Ensure directory exists
-	if cfg.Filename != "" {
-		dir := filepath.Dir(cfg.Filename)
+	if cfg.RootPath != "" {
+		dir := filepath.Dir(cfg.RootPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
 	} else {
 		// Default if empty
-		cfg.Filename = "logs/keeper.log"
+		rootPath := pathx.GetCurrentAbPath()
+		cfg.Filename = filepath.Join(rootPath, "/logs/keeper.log")
 	}
 
 	// Lumberjack logger for rotation
