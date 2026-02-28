@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
 
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
 	"github.com/w6xian/keeper/logger"
@@ -41,6 +42,12 @@ var rootCmd = &cobra.Command{
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.Execute()
+			db, err := badger.Open(badger.DefaultOptions("./badger.db"))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			defer db.Close()
 			go func() {
 				wg.Wait()
 				logger.GetLogger().Info("All goroutines finished")
@@ -52,7 +59,6 @@ var rootCmd = &cobra.Command{
 			signal.Notify(signalChan, os.Interrupt)
 			<-signalChan
 			logger.GetLogger().Info("Shutting down...")
-			fmt.Println("wg out")
 			door.Stop()
 			os.Exit(0)
 		}
