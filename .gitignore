@@ -11,3 +11,4 @@ run/keeper/logs/keeper.log
 /run/keeper/logs
 *.exe
 /example/cache.db
+/example/services.db

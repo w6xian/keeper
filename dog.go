@@ -69,6 +69,10 @@ func NewDog(addr, wsPath string, options ...DogOption) *Dog {
 
 func (d *Dog) InitService() {
 	services.InitCache(d.clientRpc)
+	services.InitCommand(d.clientRpc)
+	services.InitLog(d.clientRpc)
+	services.InitRegistry(d.clientRpc)
+	services.InitScript(d.clientRpc)
 }
 
 func (d *Dog) KeepAlive() error {
