@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/w6xian/keeper/config"
+	"github.com/w6xian/keeper/internal/fsm"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
 
@@ -17,12 +18,13 @@ import (
 )
 
 type Door struct {
-	logger  *zap.Logger
-	svrConn *sloth.Connect
-	addr    string
-	wsPath  string
-	wg      *sync.WaitGroup
-	Name    string
+	logger   *zap.Logger
+	svrConn  *sloth.Connect
+	addr     string
+	wsPath   string
+	wg       *sync.WaitGroup
+	Name     string
+	fsmStore fsm.IFSM
 }
 
 func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
@@ -79,6 +81,10 @@ func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
 	// Register Script Service
 	if err := d.svrConn.RegisterRpc("script", service.NewScriptService(), ""); err != nil {
 		d.logger.Fatal("Failed to register Script RPC", zap.Error(err))
+	}
+	// Register Cache Service
+	if err := d.svrConn.RegisterRpc("cache", service.NewCache(d.fsmStore), ""); err != nil {
+		d.logger.Fatal("Failed to register Cache RPC", zap.Error(err))
 	}
 
 	return d

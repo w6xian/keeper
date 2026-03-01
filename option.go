@@ -1,5 +1,7 @@
 package keeper
 
+import "github.com/w6xian/keeper/internal/fsm"
+
 type DogOption func(*Dog)
 
 type DoorOption func(*Door)
@@ -18,6 +20,13 @@ func WithDoorName(name string) DoorOption {
 		d.Name = name
 	}
 }
+
+func WithFSMStore(fsmStore fsm.IFSM) DoorOption {
+	return func(d *Door) {
+		d.fsmStore = fsmStore
+	}
+}
+
 func WithDogWatcher(watcher IWatcher) DogOption {
 	return func(d *Dog) {
 		d.Watcher = watcher

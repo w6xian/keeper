@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
+	"github.com/w6xian/keeper/internal/services"
 )
 
 var (
@@ -32,8 +34,15 @@ var appCmd = &cobra.Command{
 			return fmt.Errorf("path is required")
 		}
 		dog := keeper.NewDog(appPort, appPath)
+		dog.InitService()
 		dog.KeepAlive()
 		app := newApp()
+		d, err := services.Get(context.Background(), "app")
+		if err != nil {
+			services.Set(context.Background(), "app", []byte("app"))
+		}
+		// 这是keeper存储的app
+		fmt.Println(string(d))
 		app.Run(cmd, args)
 		// keep run
 		dog.Stop()

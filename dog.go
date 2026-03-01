@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/w6xian/keeper/config"
+	"github.com/w6xian/keeper/internal/services"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/registry"
 
@@ -61,8 +62,13 @@ func NewDog(addr, wsPath string, options ...DogOption) *Dog {
 	if d.Watcher != nil {
 		d.clientConn.Register("dog", d.Watcher, d.Name)
 	}
+	d.clientRpc.Call(context.Background(), "command.KeepAlive", 200)
 
 	return d
+}
+
+func (d *Dog) InitService() {
+	services.InitCache(d.clientRpc)
 }
 
 func (d *Dog) KeepAlive() error {

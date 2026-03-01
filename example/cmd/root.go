@@ -10,6 +10,7 @@ import (
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
+	fsm "github.com/w6xian/keeper/internal/fsm"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
 	"go.uber.org/zap"
@@ -32,22 +33,24 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		runFunc := func() {
 			wg := &sync.WaitGroup{}
-			door := keeper.NewDoor(wg)
+			badgerDB, err := badger.Open(badger.DefaultOptions("./cache.db"))
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+			defer badgerDB.Close()
+			fsmStore := fsm.NewBadger(badgerDB)
+			door := keeper.NewDoor(wg, keeper.WithFSMStore(fsmStore))
 			go func() {
 				err := door.Start()
 				if err != nil {
 					logger.GetLogger().Fatal("Failed to start dog", zap.Error(err))
 				}
 			}()
+
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.Execute()
-			db, err := badger.Open(badger.DefaultOptions("./badger.db"))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			defer db.Close()
 			go func() {
 				wg.Wait()
 				logger.GetLogger().Info("All goroutines finished")
