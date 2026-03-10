@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/w6xian/keeper/config"
-	"github.com/w6xian/keeper/internal/services"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/registry"
+	"github.com/w6xian/keeper/utils/services"
 
 	"github.com/w6xian/sloth"
 	"github.com/w6xian/sloth/nrpc/wsocket"

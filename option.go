@@ -1,6 +1,6 @@
 package keeper
 
-import "github.com/w6xian/keeper/internal/fsm"
+import "github.com/w6xian/keeper/utils/fsm"
 
 type DogOption func(*Dog)
 

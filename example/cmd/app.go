@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
-	"github.com/w6xian/keeper/internal/services"
+	"github.com/w6xian/keeper/utils/services"
 )
 
 var (

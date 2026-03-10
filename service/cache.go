@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/w6xian/keeper/internal/fsm"
+	"github.com/w6xian/keeper/utils/fsm"
 )
 
 type Cache struct {

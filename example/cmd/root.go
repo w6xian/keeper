@@ -10,9 +10,9 @@ import (
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
-	fsm "github.com/w6xian/keeper/internal/fsm"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
+	fsm "github.com/w6xian/keeper/utils/fsm"
 	"go.uber.org/zap"
 )
 

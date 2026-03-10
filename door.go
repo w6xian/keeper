@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/w6xian/keeper/config"
-	"github.com/w6xian/keeper/internal/fsm"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
+	"github.com/w6xian/keeper/utils/fsm"
 
 	"github.com/w6xian/sloth"
 	"go.uber.org/zap"

@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/w6xian/keeper/internal/pathx"
 	"github.com/w6xian/keeper/service"
+	"github.com/w6xian/keeper/utils/pathx"
 
 	"github.com/spf13/cobra"
 )

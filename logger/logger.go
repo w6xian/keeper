@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/w6xian/keeper/internal/pathx"
+	"github.com/w6xian/keeper/utils/pathx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"

@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/w6xian/keeper/internal/pathx"
+	"github.com/w6xian/keeper/utils/pathx"
 )
 
 // EnsureApp 确保 app 已安装，未安装则自动下载

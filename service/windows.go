@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/w6xian/keeper/internal/pathx"
+	"github.com/w6xian/keeper/utils/pathx"
 )
 
 type Windows struct {
