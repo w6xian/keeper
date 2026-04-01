@@ -73,6 +73,6 @@ func (l *Launchd) Running() bool {
 	return err == nil && len(out) > 0
 }
 
-func New(name string, displayName string) Service {
+func New() Service {
 	return &Launchd{}
 }
