@@ -14,7 +14,8 @@ func init() {
 	rootCmd.AddCommand(uninstallCmd)
 }
 
-var server_name = "TestService4"
+var server_name = "TestService5"
+var display_name = "Go Keeper server5"
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -26,7 +27,7 @@ var installCmd = &cobra.Command{
 			}
 		}()
 		binPath := pathx.GetCaller()
-		svc := service.New(server_name, "Go Keeper server3")
+		svc := service.New(server_name, display_name)
 		if err := svc.Install(binPath, "abcd4"); err != nil {
 			return fmt.Errorf("注册服务失败: %w", err)
 		}
@@ -44,7 +45,7 @@ var uninstallCmd = &cobra.Command{
 				fmt.Println("Recovered from panic:", r)
 			}
 		}()
-		svc := service.New(server_name, "Go Keeper server3")
+		svc := service.New(server_name, display_name)
 		if err := svc.Uninstall(); err != nil {
 			return fmt.Errorf("卸载服务失败: %w", err)
 		}

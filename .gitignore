@@ -12,3 +12,6 @@ run/keeper/logs/keeper.log
 *.exe
 /example/cache.db
 /example/services.db
+/cache.db
+/.workbuddy
+.door
