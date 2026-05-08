@@ -2,7 +2,9 @@
 
 package service
 
-func Run(name string, handler func()) error {
-	handler()
+import "context"
+
+func Run(name string, handler func(ctx context.Context)) error {
+	handler(context.Background())
 	return nil
 }

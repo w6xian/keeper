@@ -14,8 +14,8 @@ func init() {
 	rootCmd.AddCommand(uninstallCmd)
 }
 
-var server_name = "TestService5"
-var display_name = "Go Keeper server5"
+var server_name = "TestService6"
+var display_name = "Go Keeper server6"
 
 var installCmd = &cobra.Command{
 	Use:   "install",

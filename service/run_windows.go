@@ -3,23 +3,32 @@
 package service
 
 import (
+	"context"
+	"os"
+	"time"
+
 	"golang.org/x/sys/windows/svc"
 )
 
-func Run(name string, handler func()) error {
+func Run(name string, handler func(ctx context.Context)) error {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	if isService {
-		return svc.Run(name, &serviceHandler{handler: handler})
+		_ = os.Setenv("KEEPER_SERVICE", "1")
+		return svc.Run(name, &serviceHandler{handler: handler, cancel: cancel, ctx: ctx, done: make(chan struct{})})
 	}
-	handler()
+	handler(ctx)
 	return nil
 }
 
 type serviceHandler struct {
-	handler func()
+	handler func(ctx context.Context)
+	cancel  context.CancelFunc
+	ctx     context.Context
+	done    chan struct{}
 }
 
 func (m *serviceHandler) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- svc.Status) (bool, uint32) {
@@ -27,7 +36,10 @@ func (m *serviceHandler) Execute(args []string, r <-chan svc.ChangeRequest, s ch
 	s <- svc.Status{State: svc.StartPending}
 	s <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	go m.handler()
+	go func() {
+		defer close(m.done)
+		m.handler(m.ctx)
+	}()
 
 loop:
 	for {
@@ -36,6 +48,7 @@ loop:
 		case svc.Interrogate:
 			s <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
+			m.cancel()
 			break loop
 		case svc.Pause:
 			s <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
@@ -44,5 +57,10 @@ loop:
 		}
 	}
 	s <- svc.Status{State: svc.StopPending}
+	select {
+	case <-m.done:
+	case <-time.After(15 * time.Second):
+		os.Exit(0)
+	}
 	return false, 0
 }

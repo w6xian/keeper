@@ -25,6 +25,8 @@ type Door struct {
 	wg       *sync.WaitGroup
 	Name     string
 	fsmStore fsm.IFSM
+	childMu  sync.Mutex
+	childCmd *exec.Cmd
 }
 
 func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
@@ -118,9 +120,14 @@ func (d *Door) Execute(args ...string) string {
 	finalArgs := append(cmdArgs, "--port", d.addr, "--path", d.wsPath)
 	// fmt.Println(cmdName, finalArgs)
 	cmd := exec.Command(cmdName, finalArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	d.childMu.Lock()
+	d.childCmd = cmd
+	d.childMu.Unlock()
+	if os.Getenv("KEEPER_SERVICE") != "1" {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	}
 
 	if err := cmd.Start(); err != nil {
 		logger.GetLogger().Fatal("Failed to start child process", zap.Error(err))
@@ -134,6 +141,13 @@ func (d *Door) Execute(args ...string) string {
 }
 
 func (d *Door) Stop() error {
+	d.childMu.Lock()
+	child := d.childCmd
+	d.childCmd = nil
+	d.childMu.Unlock()
+	if child != nil && child.Process != nil {
+		_ = child.Process.Kill()
+	}
 	pidFile := pidFilePath(d.Name)
 	if err := os.Remove(pidFile); err != nil {
 		logger.GetLogger().Error("failed to remove pid file %s: %w", zap.String("pidFile", pidFile), zap.Error(err))

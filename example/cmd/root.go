@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -17,12 +20,14 @@ import (
 )
 
 var (
-	token string
+	token       string
+	serviceName string
 )
 
 func init() {
 	rootCmd.Flags().StringVar(&token, "token", "", "Token for the app websocket server")
 	rootCmd.Flags().StringVar(&rootPath, "path", "", "Path of the root websocket server")
+	rootCmd.Flags().StringVar(&serviceName, "service-name", server_name, "Windows service name")
 
 }
 
@@ -31,10 +36,36 @@ var rootCmd = &cobra.Command{
 	Short: "Keeper is a lightweight process manager and script executor",
 	Long:  `Keeper allows you to manage processes and execute scripts with ease.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		runFunc := func() {
+		runFunc := func(ctx context.Context) {
+			defer func() {
+				if r := recover(); r != nil {
+					// base := os.Getenv("PROGRAMDATA")
+					base := rootPath
+					if base == "" {
+						base = "."
+					} else {
+						base = filepath.Join(base, "keeper")
+					}
+					_ = os.MkdirAll(base, 0755)
+					_ = os.WriteFile(filepath.Join(base, "crash.log"), debug.Stack(), 0644)
+				}
+			}()
+
 			wg := &sync.WaitGroup{}
-			badgerDB, err := badger.Open(badger.DefaultOptions("./cache.db"))
+			// base := os.Getenv("PROGRAMDATA")
+			base := rootPath
+			if base == "" {
+				base = "."
+			} else {
+				base = filepath.Join(base, "data")
+			}
+			_ = os.MkdirAll(base, 0755)
+
+			dbDir := filepath.Join(base, "cache.db")
+			opts := badger.DefaultOptions(dbDir)
+			badgerDB, err := badger.Open(opts)
 			if err != nil {
+				_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
 				log.Fatal(err)
 				return
 			}
@@ -57,17 +88,20 @@ var rootCmd = &cobra.Command{
 				door.Stop()
 				os.Exit(0)
 			}()
-			// 4. Wait for signals
 			signalChan := make(chan os.Signal, 1)
 			signal.Notify(signalChan, os.Interrupt)
-			<-signalChan
-			logger.GetLogger().Info("Shutting down...")
+			select {
+			case <-ctx.Done():
+				logger.GetLogger().Info("Service stop requested")
+			case <-signalChan:
+				logger.GetLogger().Info("Shutting down...")
+			}
 			door.Stop()
 			os.Exit(0)
 		}
 
 		// Try to run as service first
-		if err := service.Run(server_name, runFunc); err != nil {
+		if err := service.Run(serviceName, runFunc); err != nil {
 			logger.GetLogger().Fatal("Service run failed", zap.Error(err))
 		}
 	},

@@ -17,7 +17,7 @@ type Windows struct {
 }
 
 func (w *Windows) Install(binPath, token string) error {
-	binArg := fmt.Sprintf(`"%s" --path="%s" --token=%s`, binPath, pathx.GetCurrentAbPath(), token)
+	binArg := fmt.Sprintf(`"%s" --path="%s" --token=%s --service-name=%s`, binPath, pathx.GetCurrentAbPath(), token, w.Name)
 	createCmd := func() error {
 		return exec.Command("sc", "create", w.Name, "binPath=", binArg, "start=", "auto", "displayname=", w.DisplayName).Run()
 	}
