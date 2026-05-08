@@ -68,8 +68,10 @@ var rootCmd = &cobra.Command{
 				return
 			}
 			defer badgerDB.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			fsmStore := fsm.NewBadger(badgerDB)
-			door := keeper.NewDoor(wg, keeper.WithFSMStore(fsmStore))
+			door := keeper.NewDoor(ctx, wg, keeper.WithFSMStore(fsmStore))
 			go func() {
 				err := door.Start()
 				if err != nil {

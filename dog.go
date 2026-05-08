@@ -12,12 +12,13 @@ import (
 	"github.com/w6xian/keeper/registry"
 	"github.com/w6xian/keeper/utils/services"
 
-	"github.com/w6xian/sloth"
-	"github.com/w6xian/sloth/nrpc/wsocket"
+	"github.com/w6xian/sloth/v2"
+	"github.com/w6xian/sloth/v2/option"
 	"go.uber.org/zap"
 )
 
 type Dog struct {
+	ctx        context.Context
 	logger     *zap.Logger
 	addr       string
 	wsPath     string
@@ -27,7 +28,8 @@ type Dog struct {
 	Watcher    IWatcher
 }
 
-func NewDog(addr, wsPath string, options ...DogOption) *Dog {
+func NewDog(ctx context.Context, addr, wsPath string, options ...DogOption) *Dog {
+
 	loggerConfig := logger.Config{
 		Level:      config.GlobalConfig.Log.Level,
 		Filename:   config.GlobalConfig.Log.Filename,
@@ -54,15 +56,19 @@ func NewDog(addr, wsPath string, options ...DogOption) *Dog {
 	for _, opt := range options {
 		opt(d)
 	}
+	d.ctx = ctx
 
 	// Client logic container (ServerRpc handles client-side logic for outgoing requests)
-	d.clientRpc = sloth.DefaultClient()
-	// Connection manager
-	d.clientConn = sloth.ClientConn(d.clientRpc)
+	// Get service methods
+	client := sloth.DefaultClient()
+	d.clientRpc = client
+	clientConn := sloth.ClientConn(client)
+	d.clientConn = clientConn
+	// Start WebSocket Client in a goroutine
 	if d.Watcher != nil {
 		d.clientConn.Register("dog", d.Watcher, d.Name)
 	}
-	d.clientRpc.Call(context.Background(), "command.KeepAlive", 200)
+	d.clientRpc.Call(ctx, "command.KeepAlive", 200)
 
 	return d
 }
@@ -77,10 +83,11 @@ func (d *Dog) InitService() {
 
 func (d *Dog) KeepAlive() error {
 	// Dial
-	go d.clientConn.StartWebsocketClient(
-		wsocket.WithClientUriPath(d.wsPath),
-		wsocket.WithClientServerUri(d.addr),
+	go d.clientConn.Dial(d.ctx, "ws", d.addr,
+		option.WithAddress(d.addr),
+		option.WithUriPath(d.wsPath),
 	)
+	// Wait for connection to be established
 	time.Sleep(1 * time.Second)
 	// --- Registry Logic ---
 	instanceID := fmt.Sprintf("%s-%d", d.Name, os.Getpid())
@@ -96,18 +103,32 @@ func (d *Dog) KeepAlive() error {
 			Tags: []string{"v1", "test"},
 		},
 	}
-	regRespBytes, err := d.clientRpc.Call(context.Background(), "registry.Register", regReq)
+	regRespBytes, err := d.clientRpc.Call(d.ctx, "registry.Register", regReq)
 	if err != nil {
-		fmt.Printf("[App] Register failed: %v\n", err)
+		fmt.Printf("[%s] Register failed: %v\n", d.Name, err)
 	} else {
-		fmt.Printf("[App] Register success: %s\n", string(regRespBytes))
+		fmt.Printf("[%s] Register success: %s\n", d.Name, string(regRespBytes))
 	}
-
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-d.ctx.Done():
+				return
+			case <-ticker.C:
+				services.Heartbeat(d.ctx, registry.HeartbeatRequest{
+					ServiceName: serviceName,
+					InstanceID:  instanceID,
+				})
+			}
+		}
+	}()
 	return nil
 }
 
 func (d *Dog) Stop() error {
-	status, err := d.clientRpc.Call(context.Background(), "command.Exit", 200)
+	status, err := d.clientRpc.Call(d.ctx, "command.Exit", 200)
 	if err != nil {
 		fmt.Printf("[%s] Exit failed: %v\n", d.Name, err)
 	} else {

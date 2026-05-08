@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/w6xian/keeper/registry"
-	"github.com/w6xian/sloth"
+	"github.com/w6xian/sloth/v2"
 )
 
 var (

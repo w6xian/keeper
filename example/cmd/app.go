@@ -33,13 +33,16 @@ var appCmd = &cobra.Command{
 		if appPath == "" {
 			return fmt.Errorf("path is required")
 		}
-		dog := keeper.NewDog(appPort, appPath)
+		ctx := context.Background()
+
+		dog := keeper.NewDog(ctx, appPort, appPath)
 		dog.InitService()
-		dog.KeepAlive()
+		go dog.KeepAlive()
 		app := newApp()
-		d, err := services.Get(context.Background(), "app")
+		d, err := services.Get(ctx, "app")
+		fmt.Println(d, err)
 		if err != nil {
-			services.Set(context.Background(), "app", []byte("app"))
+			services.Set(ctx, "app", []byte("app"))
 		}
 		// 这是keeper存储的app
 		fmt.Println(string(d))
@@ -59,6 +62,7 @@ type App struct {
 }
 
 func (h *App) Run(cmd *cobra.Command, args []string) error {
+	fmt.Println("App running -----------------")
 	for {
 		select {}
 	}

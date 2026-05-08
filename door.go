@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -13,11 +14,12 @@ import (
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/fsm"
 
-	"github.com/w6xian/sloth"
+	"github.com/w6xian/sloth/v2"
 	"go.uber.org/zap"
 )
 
 type Door struct {
+	ctx      context.Context
 	logger   *zap.Logger
 	svrConn  *sloth.Connect
 	addr     string
@@ -29,7 +31,7 @@ type Door struct {
 	childCmd *exec.Cmd
 }
 
-func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
+func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Door {
 	wg.Add(1)
 	loggerConfig := logger.Config{
 		Level:      config.GlobalConfig.Log.Level,
@@ -47,6 +49,7 @@ func NewDoor(wg *sync.WaitGroup, options ...DoorOption) *Door {
 	logger.GetLogger().Info("Dog started", zap.Int("pid", os.Getpid()))
 
 	d := &Door{
+		ctx:    ctx,
 		logger: logger.GetLogger(),
 		Name:   ".door",
 	}
@@ -99,7 +102,10 @@ func (d *Door) Start() error {
 		d.logger.Fatal("Failed to write PID file", zap.Error(err))
 		os.Exit(1)
 	}
-	d.svrConn.Listen("tcp", d.addr)
+	d.svrConn.Listen(d.ctx, "ws", d.addr)
+	if err := d.svrConn.Serve(); err != nil {
+		panic(err)
+	}
 	return nil
 }
 
