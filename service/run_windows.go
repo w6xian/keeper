@@ -4,7 +4,6 @@ package service
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -17,7 +16,6 @@ func Run(name string, handler func(ctx context.Context)) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	if isService {
-		_ = os.Setenv("KEEPER_SERVICE", "1")
 		return svc.Run(name, &serviceHandler{handler: handler, cancel: cancel, ctx: ctx, done: make(chan struct{})})
 	}
 	handler(ctx)
@@ -60,7 +58,6 @@ loop:
 	select {
 	case <-m.done:
 	case <-time.After(15 * time.Second):
-		os.Exit(0)
 	}
 	return false, 0
 }

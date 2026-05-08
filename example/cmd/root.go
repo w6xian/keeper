@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -66,7 +65,6 @@ var rootCmd = &cobra.Command{
 			badgerDB, err := badger.Open(opts)
 			if err != nil {
 				_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
-				log.Fatal(err)
 				return
 			}
 			defer badgerDB.Close()
@@ -82,22 +80,30 @@ var rootCmd = &cobra.Command{
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.Execute()
+			stopOnce := &sync.Once{}
+			stop := func() {
+				stopOnce.Do(func() {
+					door.Stop()
+				})
+			}
+
+			wgDone := make(chan struct{})
 			go func() {
 				wg.Wait()
-				logger.GetLogger().Info("All goroutines finished")
-				door.Stop()
-				os.Exit(0)
+				close(wgDone)
 			}()
+
 			signalChan := make(chan os.Signal, 1)
 			signal.Notify(signalChan, os.Interrupt)
 			select {
+			case <-wgDone:
+				logger.GetLogger().Info("All goroutines finished")
 			case <-ctx.Done():
 				logger.GetLogger().Info("Service stop requested")
 			case <-signalChan:
 				logger.GetLogger().Info("Shutting down...")
 			}
-			door.Stop()
-			os.Exit(0)
+			stop()
 		}
 
 		// Try to run as service first
