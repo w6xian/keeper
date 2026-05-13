@@ -2,9 +2,7 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"sync"
@@ -58,12 +56,13 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	}
 
 	// 1. Get random port
-	ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		d.logger.Fatal("Failed to listen", zap.Error(err))
-	}
-	port := ln.Addr().(*net.TCPAddr).Port
-	d.addr = fmt.Sprintf("127.0.0.1:%d", port)
+	// ln, err := net.Listen("tcp", ":0")
+	// if err != nil {
+	// 	d.logger.Fatal("Failed to listen", zap.Error(err))
+	// }
+	// port := ln.Addr().(*net.TCPAddr).Port
+	// d.addr = fmt.Sprintf("127.0.0.1:%d", port)
+
 	d.wsPath = "/ws"
 	// 2. Start Sloth Server
 	// Create server logic container (ClientRpc handles server-side logic for incoming clients)

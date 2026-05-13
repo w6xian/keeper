@@ -27,17 +27,20 @@ var appCmd = &cobra.Command{
 	Use:   "app",
 	Short: "Run app",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if appPort == "" {
-			return fmt.Errorf("port is required")
+		addr := "127.0.0.1:8965"
+		appPath := "/ws"
+		if appPort != "" {
+			addr = appPort
 		}
-		if appPath == "" {
-			return fmt.Errorf("path is required")
-		}
+
 		ctx := context.Background()
 
-		dog := keeper.NewDog(ctx, appPort, appPath)
+		dog := keeper.NewDog(ctx, addr, appPath)
 		dog.InitService()
-		go dog.KeepAlive()
+		err := dog.KeepAlive()
+		if err != nil {
+			return err
+		}
 		app := newApp()
 		d, err := services.Get(ctx, "app")
 		fmt.Println(d, err)

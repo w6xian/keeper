@@ -51,7 +51,6 @@ var rootCmd = &cobra.Command{
 			}()
 
 			wg := &sync.WaitGroup{}
-			// base := os.Getenv("PROGRAMDATA")
 			base := rootPath
 			if base == "" {
 				base = "."
@@ -71,7 +70,7 @@ var rootCmd = &cobra.Command{
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			fsmStore := fsm.NewBadger(badgerDB)
-			door := keeper.NewDoor(ctx, wg, keeper.WithFSMStore(fsmStore))
+			door := keeper.NewDoor(ctx, wg, keeper.WithFSMStore(fsmStore), keeper.WithDoorAddr("127.0.0.1:8965"))
 			go func() {
 				err := door.Start()
 				if err != nil {

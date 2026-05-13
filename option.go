@@ -32,3 +32,9 @@ func WithDogWatcher(watcher IWatcher) DogOption {
 		d.Watcher = watcher
 	}
 }
+
+func WithDoorAddr(addr string) DoorOption {
+	return func(d *Door) {
+		d.addr = addr
+	}
+}

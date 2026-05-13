@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/w6xian/keeper/registry"
 )
@@ -32,7 +31,6 @@ func (s *RegistryService) Heartbeat(ctx context.Context, req registry.HeartbeatR
 	if !s.Store.Heartbeat(req.ServiceName, req.InstanceID) {
 		return "", errors.New("instance not found, please register first")
 	}
-	fmt.Printf("Heartbeat: %s\n", req.InstanceID)
 	return "ok", nil
 }
 

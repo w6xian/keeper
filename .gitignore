@@ -16,3 +16,4 @@ run/keeper/logs/keeper.log
 /.workbuddy
 .door
 /data
+/example/data/cache.db

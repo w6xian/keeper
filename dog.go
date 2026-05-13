@@ -13,7 +13,9 @@ import (
 	"github.com/w6xian/keeper/utils/services"
 
 	"github.com/w6xian/sloth/v2"
+	"github.com/w6xian/sloth/v2/message"
 	"github.com/w6xian/sloth/v2/option"
+	"github.com/w6xian/sloth/v2/types"
 	"go.uber.org/zap"
 )
 
@@ -82,48 +84,56 @@ func (d *Dog) InitService() {
 }
 
 func (d *Dog) KeepAlive() error {
-	// Dial
-	go d.clientConn.Dial(d.ctx, "ws", d.addr,
-		option.WithAddress(d.addr),
-		option.WithUriPath(d.wsPath),
-	)
-	// Wait for connection to be established
-	time.Sleep(1 * time.Second)
-	// --- Registry Logic ---
-	instanceID := fmt.Sprintf("%s-%d", d.Name, os.Getpid())
-	serviceName := fmt.Sprintf("%s-service", d.Name)
-	// 1. Register
-	fmt.Printf("[%s] Registering service...\n", d.Name)
-	regReq := registry.RegisterRequest{
-		Instance: registry.ServiceInstance{
-			ID:   instanceID,
-			Name: serviceName,
-			Host: "127.0.0.1",
-			Port: 0, // Fake port for now
-			Tags: []string{"v1", "test"},
-		},
-	}
-	regRespBytes, err := d.clientRpc.Call(d.ctx, "registry.Register", regReq)
-	if err != nil {
-		fmt.Printf("[%s] Register failed: %v\n", d.Name, err)
-	} else {
-		fmt.Printf("[%s] Register success: %s\n", d.Name, string(regRespBytes))
-	}
-	go func() {
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-d.ctx.Done():
-				return
-			case <-ticker.C:
-				services.Heartbeat(d.ctx, registry.HeartbeatRequest{
-					ServiceName: serviceName,
-					InstanceID:  instanceID,
-				})
-			}
+	wait := make(chan struct{})
+	defer close(wait)
+	handler := &Handler{server: d.clientRpc}
+	handler.OnConnected(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
+		// Wait for connection to be established
+		// --- Registry Logic ---
+		instanceID := fmt.Sprintf("%s-%d", d.Name, os.Getpid())
+		serviceName := fmt.Sprintf("%s-service", d.Name)
+		regReq := registry.RegisterRequest{
+			Instance: registry.ServiceInstance{
+				ID:   instanceID,
+				Name: serviceName,
+				Host: "127.0.0.1",
+				Port: 0, // Fake port for now
+				Tags: []string{"v1", "test"},
+			},
 		}
+		regRespBytes, err := d.clientRpc.Call(d.ctx, "registry.Register", regReq)
+		if err != nil {
+			fmt.Printf("[%s] Register failed: %v\n", d.Name, err)
+		} else {
+			fmt.Printf("[%s] Register success: %s\n", d.Name, string(regRespBytes))
+		}
+		go func() {
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-d.ctx.Done():
+					return
+				case <-ticker.C:
+					services.Heartbeat(d.ctx, registry.HeartbeatRequest{
+						ServiceName: serviceName,
+						InstanceID:  instanceID,
+					})
+				}
+			}
+		}()
+		wait <- struct{}{}
+		return nil
+	})
+	// Dial
+	go func() {
+		d.clientConn.Dial(d.ctx, "ws", d.addr,
+			option.WithAddress(d.addr),
+			option.WithUriPath(d.wsPath),
+			option.WithClientHandleMessage(handler),
+		)
 	}()
+	<-wait
 	return nil
 }
 
@@ -135,4 +145,13 @@ func (d *Dog) Stop() error {
 		fmt.Printf("[%s] Exit success: %s\n", d.Name, string(status))
 	}
 	return nil
+}
+
+func (d *Dog) Call(ctx context.Context, mtd string, args ...any) (interface{}, error) {
+	return d.clientRpc.Call(ctx, mtd, args...)
+}
+
+// CallWithHeader calls a service method with a custom header.
+func (d *Dog) CallWithHeader(ctx context.Context, header message.Header, method string, args ...any) (interface{}, error) {
+	return d.clientRpc.CallWithHeader(ctx, header, method, args...)
 }
