@@ -17,6 +17,14 @@ func init() {
 var server_name = "TestService6"
 var display_name = "Go Keeper server6"
 
+func DefaultServiceName() string {
+	return server_name
+}
+
+func DefaultDisplayName() string {
+	return display_name
+}
+
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "注册为系统服务（开机自启）",
