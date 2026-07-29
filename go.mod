@@ -8,7 +8,6 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/w6xian/gua v0.0.2
-	github.com/w6xian/sloth v0.2.9
 	github.com/w6xian/sloth/v2 v2.0.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/sys v0.38.0

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/w6xian/keeper/config"
@@ -20,14 +21,20 @@ import (
 )
 
 type Dog struct {
-	ctx        context.Context
-	logger     *zap.Logger
-	addr       string
-	wsPath     string
-	clientRpc  *sloth.ServerRpc
-	clientConn *sloth.Connect
-	Name       string
-	Watcher    IWatcher
+	ctx             context.Context
+	logger          *zap.Logger
+	addr            string
+	wsPath          string
+	clientRpc       *sloth.ServerRpc
+	clientConn      *sloth.Connect
+	Name            string
+	Watcher         IWatcher
+	mu              sync.Mutex
+	instanceID      string
+	serviceName     string
+	connected       bool
+	heartbeatCancel context.CancelFunc
+	heartbeatWG     sync.WaitGroup
 }
 
 func NewDog(ctx context.Context, addr, wsPath string, options ...DogOption) *Dog {
@@ -48,17 +55,21 @@ func NewDog(ctx context.Context, addr, wsPath string, options ...DogOption) *Dog
 	logger.GetLogger().Info("Dog started", zap.Int("pid", os.Getpid()))
 
 	d := &Dog{
-		logger:  logger.GetLogger(),
-		addr:    addr,
-		wsPath:  wsPath,
-		Name:    "dog",
-		Watcher: nil,
+		logger:      logger.GetLogger(),
+		addr:        addr,
+		wsPath:      wsPath,
+		Name:        "dog",
+		Watcher:     nil,
+		instanceID:  fmt.Sprintf("%s-%d", "dog", os.Getpid()),
+		serviceName: "dog-service",
 	}
 
 	for _, opt := range options {
 		opt(d)
 	}
 	d.ctx = ctx
+	d.instanceID = fmt.Sprintf("%s-%d", d.Name, os.Getpid())
+	d.serviceName = fmt.Sprintf("%s-service", d.Name)
 
 	// Client logic container (ServerRpc handles client-side logic for outgoing requests)
 	// Get service methods
@@ -84,14 +95,24 @@ func (d *Dog) InitService() {
 }
 
 func (d *Dog) KeepAlive() error {
-	wait := make(chan struct{})
-	defer close(wait)
+	if d.ctx == nil {
+		return fmt.Errorf("dog context is nil")
+	}
+	ready := make(chan error, 1)
+	var readyOnce sync.Once
 	handler := &Handler{server: d.clientRpc}
 	handler.OnConnected(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-		// Wait for connection to be established
-		// --- Registry Logic ---
-		instanceID := fmt.Sprintf("%s-%d", d.Name, os.Getpid())
-		serviceName := fmt.Sprintf("%s-service", d.Name)
+		d.mu.Lock()
+		instanceID := d.instanceID
+		serviceName := d.serviceName
+		d.connected = true
+		if d.heartbeatCancel != nil {
+			d.heartbeatCancel()
+		}
+		heartbeatCtx, heartbeatCancel := context.WithCancel(d.ctx)
+		d.heartbeatCancel = heartbeatCancel
+		d.mu.Unlock()
+
 		regReq := registry.RegisterRequest{
 			Instance: registry.ServiceInstance{
 				ID:   instanceID,
@@ -101,44 +122,155 @@ func (d *Dog) KeepAlive() error {
 				Tags: []string{"v1", "test"},
 			},
 		}
-		regRespBytes, err := d.clientRpc.Call(d.ctx, "registry.Register", regReq)
-		if err != nil {
-			fmt.Printf("[%s] Register failed: %v\n", d.Name, err)
-		} else {
-			fmt.Printf("[%s] Register success: %s\n", d.Name, string(regRespBytes))
+
+		var regRespBytes []byte
+		var err error
+		for attempt := 1; attempt <= 5; attempt++ {
+			regRespBytes, err = d.clientRpc.Call(ctx, "registry.Register", regReq)
+			if err == nil {
+				break
+			}
+			d.logger.Warn("registry register failed, will retry",
+				zap.String("dog", d.Name),
+				zap.String("service", serviceName),
+				zap.String("instanceID", instanceID),
+				zap.Int("attempt", attempt),
+				zap.Error(err),
+			)
+			select {
+			case <-ctx.Done():
+				readyOnce.Do(func() { ready <- ctx.Err() })
+				return ctx.Err()
+			case <-time.After(time.Duration(attempt) * time.Second):
+			}
 		}
+		if err != nil {
+			readyOnce.Do(func() { ready <- fmt.Errorf("register failed after retries: %w", err) })
+			return err
+		}
+
+		d.mu.Lock()
+		if heartbeatCtx.Err() != nil {
+			d.mu.Unlock()
+			readyOnce.Do(func() { ready <- context.Canceled })
+			return context.Canceled
+		}
+		d.mu.Unlock()
+		d.logger.Info("registry register success",
+			zap.String("dog", d.Name),
+			zap.String("service", serviceName),
+			zap.String("instanceID", instanceID),
+			zap.ByteString("response", regRespBytes),
+		)
+
+		d.heartbeatWG.Add(1)
 		go func() {
+			defer d.heartbeatWG.Done()
 			ticker := time.NewTicker(15 * time.Second)
 			defer ticker.Stop()
 			for {
 				select {
-				case <-d.ctx.Done():
+				case <-heartbeatCtx.Done():
 					return
 				case <-ticker.C:
-					services.Heartbeat(d.ctx, registry.HeartbeatRequest{
+					if err := services.Heartbeat(heartbeatCtx, registry.HeartbeatRequest{
 						ServiceName: serviceName,
 						InstanceID:  instanceID,
-					})
+					}); err != nil {
+						d.logger.Warn("registry heartbeat failed",
+							zap.String("dog", d.Name),
+							zap.String("service", serviceName),
+							zap.String("instanceID", instanceID),
+							zap.Error(err),
+						)
+					}
 				}
 			}
 		}()
-		wait <- struct{}{}
+		readyOnce.Do(func() { ready <- nil })
 		return nil
 	})
-	// Dial
+	handler.OnClosed(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
+		d.stopHeartbeat()
+		d.mu.Lock()
+		d.connected = false
+		d.mu.Unlock()
+		d.logger.Warn("dog connection closed",
+			zap.String("dog", d.Name),
+			zap.String("service", d.serviceName),
+			zap.String("instanceID", d.instanceID),
+		)
+		return nil
+	})
+	handler.OnErrored(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error {
+		d.stopHeartbeat()
+		d.mu.Lock()
+		d.connected = false
+		d.mu.Unlock()
+		d.logger.Warn("dog connection error",
+			zap.String("dog", d.Name),
+			zap.String("service", d.serviceName),
+			zap.String("instanceID", d.instanceID),
+			zap.Error(err),
+		)
+		return nil
+	})
+
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				readyOnce.Do(func() { ready <- fmt.Errorf("dial panic: %v", r) })
+			}
+		}()
 		d.clientConn.Dial(d.ctx, "ws", d.addr,
 			option.WithAddress(d.addr),
 			option.WithUriPath(d.wsPath),
 			option.WithClientHandleMessage(handler),
 		)
 	}()
-	<-wait
-	return nil
+	select {
+	case err := <-ready:
+		return err
+	case <-d.ctx.Done():
+		return d.ctx.Err()
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("wait for connection timeout")
+	}
 }
 
 func (d *Dog) Stop() error {
-	status, err := d.clientRpc.Call(d.ctx, "command.Exit", 200)
+	d.mu.Lock()
+	instanceID := d.instanceID
+	serviceName := d.serviceName
+	d.mu.Unlock()
+	d.stopHeartbeat()
+	d.heartbeatWG.Wait()
+
+	if serviceName != "" && instanceID != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := services.Deregister(ctx, registry.DeregisterRequest{
+			ServiceName: serviceName,
+			InstanceID:  instanceID,
+		}); err != nil {
+			d.logger.Warn("registry deregister failed",
+				zap.String("dog", d.Name),
+				zap.String("service", serviceName),
+				zap.String("instanceID", instanceID),
+				zap.Error(err),
+			)
+		} else {
+			d.logger.Info("registry deregister success",
+				zap.String("dog", d.Name),
+				zap.String("service", serviceName),
+				zap.String("instanceID", instanceID),
+			)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	status, err := d.clientRpc.Call(ctx, "command.Exit", 200)
 	if err != nil {
 		fmt.Printf("[%s] Exit failed: %v\n", d.Name, err)
 	} else {
@@ -154,4 +286,14 @@ func (d *Dog) Call(ctx context.Context, mtd string, args ...any) (interface{}, e
 // CallWithHeader calls a service method with a custom header.
 func (d *Dog) CallWithHeader(ctx context.Context, header message.Header, method string, args ...any) (interface{}, error) {
 	return d.clientRpc.CallWithHeader(ctx, header, method, args...)
+}
+
+func (d *Dog) stopHeartbeat() {
+	d.mu.Lock()
+	cancel := d.heartbeatCancel
+	d.heartbeatCancel = nil
+	d.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }

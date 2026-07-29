@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -9,12 +10,10 @@ import (
 	"sync"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
-	fsm "github.com/w6xian/keeper/utils/fsm"
 	"go.uber.org/zap"
 )
 
@@ -59,25 +58,25 @@ var rootCmd = &cobra.Command{
 			}
 			_ = os.MkdirAll(base, 0755)
 
-			dbDir := filepath.Join(base, "cache.db")
-			opts := badger.DefaultOptions(dbDir)
-			badgerDB, err := badger.Open(opts)
-			if err != nil {
-				_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
-				return
-			}
-			defer badgerDB.Close()
+			// dbDir := filepath.Join(base, "cache.db")
+			// opts := badger.DefaultOptions(dbDir)
+			// badgerDB, err := badger.Open(opts)
+			// if err != nil {
+			// 	_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
+			// 	return
+			// }
+			// defer badgerDB.Close()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			fsmStore := fsm.NewBadger(badgerDB)
-			door := keeper.NewDoor(ctx, wg, keeper.WithFSMStore(fsmStore), keeper.WithDoorAddr("127.0.0.1:8965"))
+			// fsmStore := fsm.NewBadger(badgerDB)
+			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:8965"))
 			go func() {
 				err := door.Start()
 				if err != nil {
 					logger.GetLogger().Fatal("Failed to start dog", zap.Error(err))
 				}
 			}()
-
+			fmt.Println(3)
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.Execute()

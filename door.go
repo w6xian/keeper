@@ -86,9 +86,11 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	if err := d.svrConn.RegisterRpc("script", service.NewScriptService(), ""); err != nil {
 		d.logger.Fatal("Failed to register Script RPC", zap.Error(err))
 	}
-	// Register Cache Service
-	if err := d.svrConn.RegisterRpc("cache", service.NewCache(d.fsmStore), ""); err != nil {
-		d.logger.Fatal("Failed to register Cache RPC", zap.Error(err))
+	if d.fsmStore != nil {
+		// Register Cache Service
+		if err := d.svrConn.RegisterRpc("cache", service.NewCache(d.fsmStore), ""); err != nil {
+			d.logger.Fatal("Failed to register Cache RPC", zap.Error(err))
+		}
 	}
 
 	return d

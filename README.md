@@ -8,7 +8,8 @@ Keeper 是一个使用 Go 编写的轻量级守护/进程管理框架：通过 W
 - WebSocket RPC：基于 `github.com/w6xian/sloth`
 - 日志：`zap` + `lumberjack` 文件滚动，RPC 暴露 `log.*` 接口
 - 注册中心（内存版）：Register/Deregister/Heartbeat/Discovery，支持 TTL 过期剔除
-- 脚本执行：通过 RPC 提供 Lua 脚本执行（`script.Run`/`script.LoadFile`）
+- Dog 连接治理：内置自动重连、首次注册重试、连接断开后自动停止心跳，Stop 时优雅等待注销完成
+- 脚本执行：通过 RPC 提供 Lua 脚本执行（`script.Run`/`script.LoadFile`），基于 `github.com/w6xian/gua`
 - 系统服务安装/卸载：
   - Windows：`sc create/start/stop/delete`
   - Linux：systemd unit + `systemctl enable --now`
@@ -25,7 +26,8 @@ go run ./example
 
 - 启动 Door（随机端口监听 RPC）
 - 拉起 `app` 子命令作为子进程（Dog），并通过 WebSocket 连接 Door
-- Dog 侧演示向注册中心发起 `registry.Register` 调用
+- Dog 首次连上后会向注册中心发起 `registry.Register`，失败时自动重试
+- 连接建立后按固定周期发送 `Heartbeat`，连接关闭或停止时会自动取消心跳并执行 `Deregister`
 
 ### 构建
 
@@ -59,6 +61,7 @@ go mod vendor
 
 - Windows 安装服务通常需要管理员权限
 - Windows 下服务名在示例中由 `example/cmd/install.go` 的 `server_name` 变量决定
+- Windows 下双击 `keeper.exe` 时，若服务已运行则直接退出；若服务未运行则优先尝试启动服务
 
 ## 配置
 
