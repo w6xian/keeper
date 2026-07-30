@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"sync"
@@ -111,11 +110,11 @@ func (d *Door) Start() error {
 	}
 	wsr := mux.NewRouter()
 	if err := d.svrConn.Listen(d.ctx, "ws", d.addr,
-		option.WithRouterWithoutHandle(wsr),
+		option.WithRouter(wsr, d.wsPath),
 		option.WithServerHandleMessage(&ServerHandler{})); err != nil {
 		return err
 	}
-	http.Handle("/ws", wsr)
+	// http.Handle("/ws", wsr)
 	if err := d.svrConn.Serve(); err != nil {
 		return err
 	}
