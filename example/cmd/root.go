@@ -10,23 +10,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
+	"github.com/w6xian/keeper/utils/fsm"
 	"go.uber.org/zap"
 )
 
 var (
 	token       string
 	serviceName string
+	configPath  string
 )
 
 func init() {
 	rootCmd.Flags().StringVar(&token, "token", "", "Token for the app websocket server")
 	rootCmd.Flags().StringVar(&rootPath, "path", "", "Path of the root websocket server")
 	rootCmd.Flags().StringVar(&serviceName, "service-name", server_name, "Windows service name")
-
+	rootCmd.Flags().StringVar(&configPath, "config", "conf", "Path to the config file")
+	rootCmd.Flags().Parse(os.Args)
 }
 
 var rootCmd = &cobra.Command{
@@ -58,18 +62,18 @@ var rootCmd = &cobra.Command{
 			}
 			_ = os.MkdirAll(base, 0755)
 
-			// dbDir := filepath.Join(base, "cache.db")
-			// opts := badger.DefaultOptions(dbDir)
-			// badgerDB, err := badger.Open(opts)
-			// if err != nil {
-			// 	_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
-			// 	return
-			// }
-			// defer badgerDB.Close()
+			dbDir := filepath.Join(base, "cache.db")
+			opts := badger.DefaultOptions(dbDir)
+			badgerDB, err := badger.Open(opts)
+			if err != nil {
+				_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
+				return
+			}
+			defer badgerDB.Close()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			// fsmStore := fsm.NewBadger(badgerDB)
-			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:8965"))
+			fsmStore := fsm.NewBadger(badgerDB)
+			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:8965"), keeper.WithFSMStore(fsmStore))
 			go func() {
 				err := door.Start()
 				if err != nil {
@@ -79,7 +83,9 @@ var rootCmd = &cobra.Command{
 			fmt.Println(3)
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
-			go door.Execute()
+			go door.TryExecuteFromConfig(configPath)
+			// go door.Execute()
+
 			stopOnce := &sync.Once{}
 			stop := func() {
 				stopOnce.Do(func() {

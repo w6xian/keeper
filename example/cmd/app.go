@@ -21,21 +21,27 @@ func init() {
 	appCmd.Flags().StringVar(&appPath, "path", "", "Path of the app websocket server")
 	appCmd.Flags().StringVar(&rootPath, "root", "", "Path of the root websocket server")
 	rootCmd.AddCommand(appCmd)
+	appCmd.Flags().Parse(os.Args)
 }
 
 var appCmd = &cobra.Command{
 	Use:   "app",
 	Short: "Run app",
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		fmt.Println(appPort, appPath, "--------init")
 		addr := "127.0.0.1:8965"
-		appPath := "/ws"
+		pth := "/ws"
 		if appPort != "" {
 			addr = appPort
+		}
+		if appPath != "" {
+			pth = appPath
 		}
 
 		ctx := context.Background()
 
-		dog := keeper.NewDog(ctx, addr, appPath)
+		dog := keeper.NewDog(ctx, addr, pth)
 		dog.InitService()
 		err := dog.KeepAlive()
 		if err != nil {

@@ -278,6 +278,38 @@ func (d *Dog) Stop() error {
 	return nil
 }
 
+func (d *Dog) Close() error {
+	d.mu.Lock()
+	instanceID := d.instanceID
+	serviceName := d.serviceName
+	d.mu.Unlock()
+	d.stopHeartbeat()
+	d.heartbeatWG.Wait()
+
+	if serviceName != "" && instanceID != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := services.Deregister(ctx, registry.DeregisterRequest{
+			ServiceName: serviceName,
+			InstanceID:  instanceID,
+		}); err != nil {
+			d.logger.Warn("registry deregister failed",
+				zap.String("dog", d.Name),
+				zap.String("service", serviceName),
+				zap.String("instanceID", instanceID),
+				zap.Error(err),
+			)
+		} else {
+			d.logger.Info("registry deregister success",
+				zap.String("dog", d.Name),
+				zap.String("service", serviceName),
+				zap.String("instanceID", instanceID),
+			)
+		}
+	}
+	return nil
+}
+
 func (d *Dog) Call(ctx context.Context, mtd string, args ...any) (interface{}, error) {
 	return d.clientRpc.Call(ctx, mtd, args...)
 }

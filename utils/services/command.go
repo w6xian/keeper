@@ -41,3 +41,27 @@ func KeepAlive(ctx context.Context, code int) ([]byte, error) {
 	}
 	return newCommand.cli.Call(ctx, "command.KeepAlive", code)
 }
+
+func StopService(ctx context.Context, name string) ([]byte, error) {
+	newCommand := InitCommand(nil)
+	if newCommand.cli == nil {
+		return nil, fmt.Errorf("command client is nil")
+	}
+	return newCommand.cli.Call(ctx, "command.StopService", name)
+}
+
+func StartService(ctx context.Context, name string) ([]byte, error) {
+	newCommand := InitCommand(nil)
+	if newCommand.cli == nil {
+		return nil, fmt.Errorf("command client is nil")
+	}
+	return newCommand.cli.Call(ctx, "command.StartService", name)
+}
+
+func ReloadService(ctx context.Context, name string) ([]byte, error) {
+	newCommand := InitCommand(nil)
+	if newCommand.cli == nil {
+		return nil, fmt.Errorf("command client is nil")
+	}
+	return newCommand.cli.Call(ctx, "command.ReloadService", name)
+}

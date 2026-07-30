@@ -2,10 +2,14 @@ package keeper
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/w6xian/keeper/config"
@@ -27,6 +31,8 @@ type Door struct {
 	wg       *sync.WaitGroup
 	Name     string
 	fsmStore fsm.IFSM
+	runnerMu sync.Mutex
+	runner   *keeperRunner
 	childMu  sync.Mutex
 	childCmd *exec.Cmd
 }
@@ -51,6 +57,7 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	d := &Door{
 		ctx:    ctx,
 		logger: logger.GetLogger(),
+		wg:     wg,
 		Name:   ".door",
 	}
 	for _, opt := range options {
@@ -76,7 +83,7 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	d.svrConn = sloth.ServerConn(clientRpc)
 
 	// Register RPC Service
-	if err := d.svrConn.RegisterRpc("command", service.NewCommand(wg), ""); err != nil {
+	if err := d.svrConn.RegisterRpc("command", service.NewCommand(wg, d), ""); err != nil {
 		d.logger.Fatal("Failed to register RPC", zap.Error(err))
 	}
 	// Register Log Service
@@ -156,6 +163,65 @@ func (d *Door) Execute(args ...string) string {
 	}
 	// fmt.Println("------wait")
 	return d.addr
+}
+
+func (d *Door) TryExecuteFromConfig(c string) error {
+	conf, err := initConfig(c)
+	if err != nil {
+		logger.GetLogger().Error("failed to init config: %w", zap.Error(err))
+		return err
+	}
+	ordered, err := sortServices(conf.Services)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := signal.NotifyContext(d.ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	runner := newKeeperRunner(ctx, ordered, d.addr, d.wsPath)
+	d.setRunner(runner)
+	defer d.setRunner(nil)
+	if err := runner.run(); err != nil && !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
+}
+
+func (d *Door) StopService(ctx context.Context, name string) error {
+	d.runnerMu.Lock()
+	runner := d.runner
+	d.runnerMu.Unlock()
+	if runner == nil {
+		return fmt.Errorf("runner not started")
+	}
+	return runner.StopService(name)
+}
+
+func (d *Door) StartService(ctx context.Context, name string) error {
+	d.runnerMu.Lock()
+	runner := d.runner
+	d.runnerMu.Unlock()
+	if runner == nil {
+		return fmt.Errorf("runner not started")
+	}
+	return runner.StartService(name)
+}
+
+func (d *Door) ReloadService(ctx context.Context, name string) error {
+	d.runnerMu.Lock()
+	runner := d.runner
+	d.runnerMu.Unlock()
+	if runner == nil {
+		return fmt.Errorf("runner not started")
+	}
+	return runner.ReloadService(name)
+}
+
+func (d *Door) setRunner(runner *keeperRunner) {
+	d.runnerMu.Lock()
+	d.runner = runner
+	d.runnerMu.Unlock()
 }
 
 func (d *Door) Stop() error {
