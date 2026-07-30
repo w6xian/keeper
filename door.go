@@ -3,10 +3,12 @@ package keeper
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"sync"
 
+	"github.com/gorilla/mux"
 	"github.com/w6xian/keeper/config"
 	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
@@ -107,10 +109,13 @@ func (d *Door) Start() error {
 		d.logger.Fatal("Failed to write PID file", zap.Error(err))
 		os.Exit(1)
 	}
+	wsr := mux.NewRouter()
 	if err := d.svrConn.Listen(d.ctx, "ws", d.addr,
+		option.WithRouterWithoutHandle(wsr),
 		option.WithServerHandleMessage(&ServerHandler{})); err != nil {
 		return err
 	}
+	http.Handle("/ws", wsr)
 	if err := d.svrConn.Serve(); err != nil {
 		return err
 	}

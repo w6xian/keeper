@@ -32,7 +32,7 @@ var appCmd = &cobra.Command{
 		if appPort != "" {
 			addr = appPort
 		}
-		fmt.Println("-----------------")
+
 		ctx := context.Background()
 
 		dog := keeper.NewDog(ctx, addr, appPath)
