@@ -13,6 +13,7 @@ import (
 	"github.com/w6xian/keeper/utils/fsm"
 
 	"github.com/w6xian/sloth/v2"
+	"github.com/w6xian/sloth/v2/option"
 	"go.uber.org/zap"
 )
 
@@ -53,6 +54,9 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	}
 	for _, opt := range options {
 		opt(d)
+	}
+	if d.addr == "" {
+		d.addr = "127.0.0.1:8965"
 	}
 
 	// 1. Get random port
@@ -103,9 +107,12 @@ func (d *Door) Start() error {
 		d.logger.Fatal("Failed to write PID file", zap.Error(err))
 		os.Exit(1)
 	}
-	d.svrConn.Listen(d.ctx, "ws", d.addr)
+	if err := d.svrConn.Listen(d.ctx, "ws", d.addr,
+		option.WithServerHandleMessage(&ServerHandler{})); err != nil {
+		return err
+	}
 	if err := d.svrConn.Serve(); err != nil {
-		panic(err)
+		return err
 	}
 	return nil
 }

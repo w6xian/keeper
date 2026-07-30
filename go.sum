@@ -137,10 +137,8 @@ github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9R
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
 github.com/w6xian/gua v0.0.2 h1:3/nU4Ziipm+4WqwiO4yL372PEYmsTwIhaf4U+uMpLR0=
 github.com/w6xian/gua v0.0.2/go.mod h1:p/I3XKnIpkIDPAKjzhV2JmHlqJ132SjfE1/rYarAnzk=
-github.com/w6xian/sloth v0.2.9 h1:UvfEy3dvFrZIGZ7bQr3Px66qdLrUN36PM1rhrlWsO7Y=
-github.com/w6xian/sloth v0.2.9/go.mod h1:cXcsP4JaIdmgmCVmQyb/DUXYOugnJDSgVh10n0DxLGI=
-github.com/w6xian/sloth/v2 v2.0.0 h1:7Co0nv9RtbS2w1oXiQYK/FsOhZKWQ9Bgb//QJLPt5sc=
-github.com/w6xian/sloth/v2 v2.0.0/go.mod h1:O94CZxMdPwiEuj0sUIAFjadMJt5tnIuZ2VSTrecwT1s=
+github.com/w6xian/sloth/v2 v2.0.2 h1:bJf+IS+kUsprc3lkF22tDXrnVaxLuf8Ot3U4mLXKNSA=
+github.com/w6xian/sloth/v2 v2.0.2/go.mod h1:O94CZxMdPwiEuj0sUIAFjadMJt5tnIuZ2VSTrecwT1s=
 github.com/w6xian/tlv v0.0.4 h1:6XFfSPkhyppCmRWn73/YRHoUpRRyfPiK6sSdde3zAx8=
 github.com/w6xian/tlv v0.0.4/go.mod h1:m/e+BcqUOQJg2mfupU2d4vMkadHGYXYqREyHoRb+coM=
 github.com/xtaci/kcp-go/v5 v5.6.72 h1:FLaQPalgpufJYQRk0OK+gErEhXGLUPjv6FSRPrFR8Lk=

@@ -215,7 +215,6 @@ func (d *Dog) KeepAlive() error {
 		)
 		return nil
 	})
-
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
