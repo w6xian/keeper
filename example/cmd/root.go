@@ -2,15 +2,14 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v4"
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
 	"github.com/w6xian/keeper/logger"
@@ -23,6 +22,8 @@ var (
 	token       string
 	serviceName string
 	configPath  string
+	fsmType     string
+	port        int
 )
 
 func init() {
@@ -30,6 +31,9 @@ func init() {
 	rootCmd.Flags().StringVar(&rootPath, "path", "", "Path of the root websocket server")
 	rootCmd.Flags().StringVar(&serviceName, "service-name", server_name, "Windows service name")
 	rootCmd.Flags().StringVar(&configPath, "config", "conf", "Path to the config file")
+	rootCmd.Flags().StringVar(&fsmType, "fsm", "bolt", "Type of the FSM to use")
+	rootCmd.Flags().IntVar(&port, "port", 8965, "Port of the app websocket server")
+
 	rootCmd.Flags().Parse(os.Args)
 }
 
@@ -62,25 +66,20 @@ var rootCmd = &cobra.Command{
 			}
 			_ = os.MkdirAll(base, 0755)
 
-			dbDir := filepath.Join(base, "cache.db")
-			opts := badger.DefaultOptions(dbDir)
-			badgerDB, err := badger.Open(opts)
-			if err != nil {
-				_ = os.WriteFile(filepath.Join(base, "badger_open_error.log"), []byte(err.Error()), 0644)
-				return
-			}
-			defer badgerDB.Close()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			fsmStore := fsm.NewBadger(badgerDB)
-			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:8965"), keeper.WithFSMStore(fsmStore))
+			fsmStore, err := fsm.NewFSM(fsmType, base)
+			if err != nil {
+				logger.GetLogger().Fatal("Failed to create FSM store", zap.Error(err))
+			}
+			defer fsmStore.Close()
+			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:"+strconv.Itoa(port)), keeper.WithFSMStore(fsmStore))
 			go func() {
 				err := door.Start()
 				if err != nil {
 					logger.GetLogger().Fatal("Failed to start dog", zap.Error(err))
 				}
 			}()
-			fmt.Println(3)
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
 			go door.TryExecuteFromConfig(configPath)

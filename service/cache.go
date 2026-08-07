@@ -15,14 +15,15 @@ func NewCache(fsmStore fsm.IFSM) *Cache {
 }
 
 // Get/Set/Del cache
-func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
-	return c.fsmStore.Get(key)
+func (c *Cache) Get(ctx context.Context, bucket, key string) ([]byte, error) {
+	value, err := c.fsmStore.Get(bucket, key)
+	return value, err
 }
 
-func (c *Cache) Set(ctx context.Context, key string, value []byte) ([]byte, error) {
-	return nil, c.fsmStore.Set(key, value)
+func (c *Cache) Set(ctx context.Context, bucket, key string, value []byte) ([]byte, error) {
+	return nil, c.fsmStore.Set(bucket, key, value)
 }
 
-func (c *Cache) Del(ctx context.Context, key string) ([]byte, error) {
-	return nil, c.fsmStore.Del(key)
+func (c *Cache) Del(ctx context.Context, bucket, key string) ([]byte, error) {
+	return nil, c.fsmStore.Del(bucket, key)
 }
