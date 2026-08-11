@@ -103,8 +103,8 @@ github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9R
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
 github.com/w6xian/gua v0.0.2 h1:3/nU4Ziipm+4WqwiO4yL372PEYmsTwIhaf4U+uMpLR0=
 github.com/w6xian/gua v0.0.2/go.mod h1:p/I3XKnIpkIDPAKjzhV2JmHlqJ132SjfE1/rYarAnzk=
-github.com/w6xian/sloth/v3 v3.0.1 h1:F2436bT0xrwr38T7FVJNNlUYcj0Xf98KFKs8sDkgV04=
-github.com/w6xian/sloth/v3 v3.0.1/go.mod h1:VZQ+zMK3UbamN3K7smkKPan5fPVP10RXzfpY1hTi5Mg=
+github.com/w6xian/sloth/v3 v3.0.2 h1:3TLB4MCIl7RD/XSrWDluldpXa23jxcV7+KYluOq9k1M=
+github.com/w6xian/sloth/v3 v3.0.2/go.mod h1:VZQ+zMK3UbamN3K7smkKPan5fPVP10RXzfpY1hTi5Mg=
 github.com/w6xian/tlv v0.0.4 h1:6XFfSPkhyppCmRWn73/YRHoUpRRyfPiK6sSdde3zAx8=
 github.com/w6xian/tlv v0.0.4/go.mod h1:m/e+BcqUOQJg2mfupU2d4vMkadHGYXYqREyHoRb+coM=
 github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=

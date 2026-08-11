@@ -16,7 +16,6 @@ import (
 	"github.com/w6xian/sloth/v3"
 	"github.com/w6xian/sloth/v3/message"
 	"github.com/w6xian/sloth/v3/option"
-	"github.com/w6xian/sloth/v3/types"
 	"go.uber.org/zap"
 )
 
@@ -99,141 +98,19 @@ func (d *Dog) KeepAlive() error {
 		return fmt.Errorf("dog context is nil")
 	}
 	ready := make(chan error, 1)
-	var readyOnce sync.Once
-	handler := &Handler{server: d.clientRpc}
-	handler.OnConnected(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-		d.mu.Lock()
-		instanceID := d.instanceID
-		serviceName := d.serviceName
-		d.connected = true
-		if d.heartbeatCancel != nil {
-			d.heartbeatCancel()
-		}
-		heartbeatCtx, heartbeatCancel := context.WithCancel(d.ctx)
-		d.heartbeatCancel = heartbeatCancel
-		d.mu.Unlock()
-
-		regReq := registry.RegisterRequest{
-			Instance: registry.ServiceInstance{
-				ID:   instanceID,
-				Name: serviceName,
-				Host: "127.0.0.1",
-				Port: 0, // Fake port for now
-				Tags: []string{"v1", "test"},
-			},
-		}
-
-		var regRespBytes []byte
-		var err error
-		for attempt := 1; attempt <= 5; attempt++ {
-			regRespBytes, err = d.clientRpc.Call(ctx, "registry.Register", regReq)
-			if err == nil {
-				break
-			}
-			d.logger.Warn("registry register failed, will retry",
-				zap.String("dog", d.Name),
-				zap.String("service", serviceName),
-				zap.String("instanceID", instanceID),
-				zap.Int("attempt", attempt),
-				zap.Error(err),
-			)
-			select {
-			case <-ctx.Done():
-				readyOnce.Do(func() { ready <- ctx.Err() })
-				return ctx.Err()
-			case <-time.After(time.Duration(attempt) * time.Second):
-			}
-		}
-		if err != nil {
-			readyOnce.Do(func() { ready <- fmt.Errorf("register failed after retries: %w", err) })
-			return err
-		}
-
-		d.mu.Lock()
-		if heartbeatCtx.Err() != nil {
-			d.mu.Unlock()
-			readyOnce.Do(func() { ready <- context.Canceled })
-			return context.Canceled
-		}
-		d.mu.Unlock()
-		d.logger.Info("registry register success",
-			zap.String("dog", d.Name),
-			zap.String("service", serviceName),
-			zap.String("instanceID", instanceID),
-			zap.ByteString("response", regRespBytes),
-		)
-
-		d.heartbeatWG.Add(1)
-		go func() {
-			defer d.heartbeatWG.Done()
-			ticker := time.NewTicker(15 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-heartbeatCtx.Done():
-					return
-				case <-ticker.C:
-					if err := services.Heartbeat(heartbeatCtx, registry.HeartbeatRequest{
-						ServiceName: serviceName,
-						InstanceID:  instanceID,
-					}); err != nil {
-						d.logger.Warn("registry heartbeat failed",
-							zap.String("dog", d.Name),
-							zap.String("service", serviceName),
-							zap.String("instanceID", instanceID),
-							zap.Error(err),
-						)
-					}
-				}
-			}
-		}()
-		readyOnce.Do(func() { ready <- nil })
-		return nil
-	})
-	handler.OnClosed(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-		d.stopHeartbeat()
-		d.mu.Lock()
-		d.connected = false
-		d.mu.Unlock()
-		d.logger.Warn("dog connection closed",
-			zap.String("dog", d.Name),
-			zap.String("service", d.serviceName),
-			zap.String("instanceID", d.instanceID),
-		)
-		return nil
-	})
-	handler.OnErrored(func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error {
-		d.stopHeartbeat()
-		d.mu.Lock()
-		d.connected = false
-		d.mu.Unlock()
-		d.logger.Warn("dog connection error",
-			zap.String("dog", d.Name),
-			zap.String("service", d.serviceName),
-			zap.String("instanceID", d.instanceID),
-			zap.Error(err),
-		)
-		return nil
-	})
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				readyOnce.Do(func() { ready <- fmt.Errorf("dial panic: %v", r) })
-			}
-		}()
 		d.clientConn.Dial(d.ctx, "ws", d.addr,
-			option.WithAddress(d.addr),
 			option.WithUriPath(d.wsPath),
-			option.WithClientHandleMessage(handler),
+			option.WithClientHandleMessage(&Handler{ready: ready, dog: d}),
 		)
 	}()
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
 	select {
+	case <-timer.C:
+		return fmt.Errorf("dog dial timeout")
 	case err := <-ready:
 		return err
-	case <-d.ctx.Done():
-		return d.ctx.Err()
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("wait for connection timeout")
 	}
 }
 

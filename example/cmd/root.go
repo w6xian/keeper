@@ -82,8 +82,8 @@ var rootCmd = &cobra.Command{
 			}()
 			// Wait a bit for server to start
 			time.Sleep(200 * time.Millisecond)
-			go door.TryExecuteFromConfig(configPath)
-			// go door.Execute()
+			// go door.TryExecuteFromConfig(configPath)
+			go door.Execute()
 
 			stopOnce := &sync.Once{}
 			stop := func() {

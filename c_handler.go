@@ -2,64 +2,50 @@ package keeper
 
 import (
 	"context"
-	"log"
+	"net/http"
 
-	"github.com/gorilla/websocket"
-	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v3/slots"
 	"github.com/w6xian/sloth/v3/types"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
-	server           *sloth.ServerRpc
-	onPendingHandler func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error
-	onCloseHandler   func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error
-	onErrorHandler   func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error
-}
-
-func (h *Handler) OnConnected(f func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error) {
-	h.onPendingHandler = f
-}
-
-func (h *Handler) OnClosed(f func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error) {
-	h.onCloseHandler = f
-}
-
-func (h *Handler) OnErrored(f func(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error) {
-	h.onErrorHandler = f
+	slots.Client
+	ready chan error
+	dog   *Dog
 }
 
 // OnClose is called when connection is closed
-func (h *Handler) OnClose(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-	log.Println("OnClose:", ch.GetUserId())
-	if h.onCloseHandler != nil {
-		return h.onCloseHandler(ctx, c, ch)
-	}
-	return nil
-}
-
-// OnData handles received messages
-func (h *Handler) OnData(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, msgType int, message []byte) error {
-	if msgType == websocket.TextMessage {
-		log.Println("HandleMessage:", 1, string(message))
-	}
-
+func (h *Handler) OnClose(ctx context.Context, r *http.Response, c types.IConnRpc, ch types.IConnInfo) error {
+	h.dog.stopHeartbeat()
+	h.dog.mu.Lock()
+	h.dog.connected = false
+	h.dog.mu.Unlock()
+	h.dog.logger.Warn("dog connection closed",
+		zap.String("dog", h.dog.Name),
+		zap.String("service", h.dog.serviceName),
+		zap.String("instanceID", h.dog.instanceID),
+	)
 	return nil
 }
 
 // OnError handles errors
-func (h *Handler) OnError(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error {
-	log.Println("OnError:", err.Error())
-	if h.onErrorHandler != nil {
-		return h.onErrorHandler(ctx, c, ch, err)
-	}
+func (h *Handler) OnError(ctx context.Context, r *http.Response, c types.IConnRpc, ch types.IConnInfo, err error) error {
+	h.dog.stopHeartbeat()
+	h.dog.mu.Lock()
+	h.dog.connected = false
+	h.dog.mu.Unlock()
+	h.dog.logger.Warn("dog connection error",
+		zap.String("dog", h.dog.Name),
+		zap.String("service", h.dog.serviceName),
+		zap.String("instanceID", h.dog.instanceID),
+		zap.Error(err),
+	)
 	return nil
 }
 
 // OnOpen is called when connection is opened
-func (h *Handler) OnOpen(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-	log.Println("OnOpen:", ch.GetUserId(), h.server)
-	if h.onPendingHandler != nil {
-		return h.onPendingHandler(ctx, c, ch)
-	}
+func (h *Handler) OnReady(ctx context.Context, r *http.Response, c types.IConnRpc, ch types.IConnInfo) error {
+	h.ready <- nil
 	return nil
 }

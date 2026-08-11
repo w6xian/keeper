@@ -117,8 +117,7 @@ func (d *Door) Start() error {
 	}
 	wsr := mux.NewRouter()
 	if err := d.svrConn.Listen(d.ctx, "ws", d.addr,
-		option.WithRouter(wsr, d.wsPath),
-		option.WithServerHandleMessage(&ServerHandler{})); err != nil {
+		option.WithRouter(wsr, d.wsPath)); err != nil {
 		return err
 	}
 	// http.Handle("/ws", wsr)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -53,6 +54,7 @@ var appCmd = &cobra.Command{
 		}
 		// 这是keeper存储的app
 		log.Println(string(d))
+		fmt.Println(d)
 		app.Run(cmd, args)
 		// keep run
 		dog.Stop()
