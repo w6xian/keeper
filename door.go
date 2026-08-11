@@ -17,8 +17,8 @@ import (
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/fsm"
 
-	"github.com/w6xian/sloth/v2"
-	"github.com/w6xian/sloth/v2/option"
+	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v3/option"
 	"go.uber.org/zap"
 )
 
@@ -83,24 +83,24 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	d.svrConn = sloth.ServerConn(clientRpc)
 
 	// Register RPC Service
-	if err := d.svrConn.RegisterRpc("command", service.NewCommand(wg, d), ""); err != nil {
+	if err := d.svrConn.Register("command", service.NewCommand(wg, d), ""); err != nil {
 		d.logger.Fatal("Failed to register RPC", zap.Error(err))
 	}
 	// Register Log Service
-	if err := d.svrConn.RegisterRpc("log", new(service.LogService), ""); err != nil {
+	if err := d.svrConn.Register("log", new(service.LogService), ""); err != nil {
 		d.logger.Fatal("Failed to register Log RPC", zap.Error(err))
 	}
 	// Register Registry Service
-	if err := d.svrConn.RegisterRpc("registry", service.NewRegistryService(), ""); err != nil {
+	if err := d.svrConn.Register("registry", service.NewRegistryService(), ""); err != nil {
 		d.logger.Fatal("Failed to register Registry RPC", zap.Error(err))
 	}
 	// Register Script Service
-	if err := d.svrConn.RegisterRpc("script", service.NewScriptService(), ""); err != nil {
+	if err := d.svrConn.Register("script", service.NewScriptService(), ""); err != nil {
 		d.logger.Fatal("Failed to register Script RPC", zap.Error(err))
 	}
 	if d.fsmStore != nil {
 		// Register Cache Service
-		if err := d.svrConn.RegisterRpc("cache", service.NewCache(d.fsmStore), ""); err != nil {
+		if err := d.svrConn.Register("cache", service.NewCache(d.fsmStore), ""); err != nil {
 			d.logger.Fatal("Failed to register Cache RPC", zap.Error(err))
 		}
 	}

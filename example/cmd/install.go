@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/pathx"
@@ -31,7 +32,7 @@ var installCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic:", r)
+				log.Println("Recovered from panic:", r)
 			}
 		}()
 		binPath := pathx.GetCaller()
@@ -39,7 +40,7 @@ var installCmd = &cobra.Command{
 		if err := svc.Install(binPath, "abcd4"); err != nil {
 			return fmt.Errorf("注册服务失败: %w", err)
 		}
-		fmt.Println("系统服务已注册，隧道将开机自启")
+		log.Println("系统服务已注册，隧道将开机自启")
 		return nil
 	},
 }
@@ -50,14 +51,14 @@ var uninstallCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic:", r)
+				log.Println("Recovered from panic:", r)
 			}
 		}()
 		svc := service.New(server_name, display_name)
 		if err := svc.Uninstall(); err != nil {
 			return fmt.Errorf("卸载服务失败: %w", err)
 		}
-		fmt.Println("系统服务已卸载")
+		log.Println("系统服务已卸载")
 		return nil
 	},
 }

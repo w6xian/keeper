@@ -19,7 +19,6 @@ func Stop() error {
 		return fmt.Errorf("停止 casher 失败: %w", err)
 	}
 	os.Remove(pidFile)
-	fmt.Println("casher 已停止")
 	return nil
 }
 

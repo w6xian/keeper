@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -52,7 +52,7 @@ var appCmd = &cobra.Command{
 			services.Set(ctx, "app", []byte("app"))
 		}
 		// 这是keeper存储的app
-		fmt.Println(string(d))
+		log.Println(string(d))
 		app.Run(cmd, args)
 		// keep run
 		dog.Stop()
@@ -69,7 +69,7 @@ type App struct {
 }
 
 func (h *App) Run(cmd *cobra.Command, args []string) error {
-	fmt.Println("App running -----------------")
+	log.Println("App running -----------------")
 	for {
 		select {}
 	}

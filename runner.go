@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -14,15 +15,15 @@ import (
 )
 
 type serviceRuntime struct {
-	service        Service
-	cmd            *exec.Cmd
-	exitCh         chan error
-	restarts       int
-	pendingRestart bool
-	nextRestartAt  time.Time
-	stopRequested  bool
+	service         Service
+	cmd             *exec.Cmd
+	exitCh          chan error
+	restarts        int
+	pendingRestart  bool
+	nextRestartAt   time.Time
+	stopRequested   bool
 	restartDisabled bool
-	mu             sync.Mutex
+	mu              sync.Mutex
 }
 
 type keeperRunner struct {
@@ -57,7 +58,7 @@ func (r *keeperRunner) run() error {
 		time.Sleep(time.Second)
 	}
 	if len(started) == 0 {
-		fmt.Println("no service started")
+		log.Println("no service started")
 		return nil
 	}
 
@@ -77,9 +78,9 @@ func (r *keeperRunner) run() error {
 			}
 			if runtime.isRestartDue(now) {
 				runtime.restarts++
-				fmt.Printf("restarting service: %s, attempt=%d\n", runtime.service.Name, runtime.restarts)
+				log.Printf("restarting service: %s, attempt=%d\n", runtime.service.Name, runtime.restarts)
 				if restartErr := r.start(runtime); restartErr != nil {
-					fmt.Printf("restart failed: %s, err=%v\n", runtime.service.Name, restartErr)
+					log.Printf("restart failed: %s, err=%v\n", runtime.service.Name, restartErr)
 					runtime.scheduleRestart(time.Now(), runtime.restarts+1)
 				}
 				continue
@@ -90,20 +91,20 @@ func (r *keeperRunner) run() error {
 				continue
 			}
 			if expected {
-				fmt.Printf("service exited: %s\n", runtime.service.Name)
+				log.Printf("service exited: %s\n", runtime.service.Name)
 				continue
 			}
 			if err == nil {
-				fmt.Printf("service exited unexpectedly: %s\n", runtime.service.Name)
+				log.Printf("service exited unexpectedly: %s\n", runtime.service.Name)
 			} else {
-				fmt.Printf("service exited: %s, err=%v\n", runtime.service.Name, err)
+				log.Printf("service exited: %s, err=%v\n", runtime.service.Name, err)
 			}
 			if runtime.isRestartDisabled() {
 				continue
 			}
 			limit := runtime.service.EffectiveRestartLimit()
 			if limit > 0 && runtime.restarts >= limit {
-				fmt.Printf("service restart limit reached: %s, limit=%d\n", runtime.service.Name, runtime.service.EffectiveRestartLimit())
+				log.Printf("service restart limit reached: %s, limit=%d\n", runtime.service.Name, runtime.service.EffectiveRestartLimit())
 				continue
 			}
 			runtime.scheduleRestart(now, runtime.restarts+1)
@@ -134,7 +135,7 @@ func (r *keeperRunner) startLocked(runtime *serviceRuntime) error {
 	go func() {
 		exitCh <- cmd.Wait()
 	}()
-	fmt.Printf("service started: %s, pid=%d\n", runtime.service.Name, cmd.Process.Pid)
+	log.Printf("service started: %s, pid=%d\n", runtime.service.Name, cmd.Process.Pid)
 	return nil
 }
 
@@ -234,7 +235,7 @@ func (r *keeperRunner) stopAll(started []*serviceRuntime) {
 	for i := len(started) - 1; i >= 0; i-- {
 		runtime := started[i]
 		if err := stopService(runtime); err != nil {
-			fmt.Printf("stop service failed: %s, err=%v\n", runtime.service.Name, err)
+			log.Printf("stop service failed: %s, err=%v\n", runtime.service.Name, err)
 		}
 	}
 }
@@ -257,7 +258,7 @@ func stopService(runtime *serviceRuntime) error {
 		stop.Stderr = os.Stderr
 		stop.Stdin = os.Stdin
 		if err := stop.Run(); err != nil {
-			fmt.Printf("graceful stop command failed: %s, err=%v\n", runtime.service.Name, err)
+			log.Printf("graceful stop command failed: %s, err=%v\n", runtime.service.Name, err)
 		}
 	}
 

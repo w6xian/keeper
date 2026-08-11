@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -26,19 +26,19 @@ var luaCmd = &cobra.Command{
 		ctx := context.Background()
 		dog := keeper.NewDog(ctx, addr, appPath)
 		dog.InitService()
-		fmt.Println("KeepAlive")
+		log.Println("KeepAlive")
 		err := dog.KeepAlive()
 		if err != nil {
 			return err
 		}
-		fmt.Println("KeepAlive done")
+		log.Println("KeepAlive done")
 		l := newLuax(dog)
 		d, err := services.Get(ctx, "app")
 		if err != nil {
 			return err
 		}
 		// 这是keeper存储的app
-		fmt.Println(string(d))
+		log.Println(string(d))
 		l.Run(cmd, args)
 		// keep run
 		// dog.Stop()

@@ -2,11 +2,11 @@ package keeper
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"github.com/gorilla/websocket"
-	"github.com/w6xian/sloth/v2"
-	"github.com/w6xian/sloth/v2/types"
+	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v3/types"
 )
 
 type Handler struct {
@@ -30,7 +30,7 @@ func (h *Handler) OnErrored(f func(ctx context.Context, c types.IConnRpc, ch typ
 
 // OnClose is called when connection is closed
 func (h *Handler) OnClose(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-	fmt.Println("OnClose:", ch.GetUserId())
+	log.Println("OnClose:", ch.GetUserId())
 	if h.onCloseHandler != nil {
 		return h.onCloseHandler(ctx, c, ch)
 	}
@@ -40,7 +40,7 @@ func (h *Handler) OnClose(ctx context.Context, c types.IConnRpc, ch types.IConnI
 // OnData handles received messages
 func (h *Handler) OnData(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, msgType int, message []byte) error {
 	if msgType == websocket.TextMessage {
-		fmt.Println("HandleMessage:", 1, string(message))
+		log.Println("HandleMessage:", 1, string(message))
 	}
 
 	return nil
@@ -48,7 +48,7 @@ func (h *Handler) OnData(ctx context.Context, c types.IConnRpc, ch types.IConnIn
 
 // OnError handles errors
 func (h *Handler) OnError(ctx context.Context, c types.IConnRpc, ch types.IConnInfo, err error) error {
-	fmt.Println("OnError:", err.Error())
+	log.Println("OnError:", err.Error())
 	if h.onErrorHandler != nil {
 		return h.onErrorHandler(ctx, c, ch, err)
 	}
@@ -57,7 +57,7 @@ func (h *Handler) OnError(ctx context.Context, c types.IConnRpc, ch types.IConnI
 
 // OnOpen is called when connection is opened
 func (h *Handler) OnOpen(ctx context.Context, c types.IConnRpc, ch types.IConnInfo) error {
-	fmt.Println("OnOpen:", ch.GetUserId(), h.server)
+	log.Println("OnOpen:", ch.GetUserId(), h.server)
 	if h.onPendingHandler != nil {
 		return h.onPendingHandler(ctx, c, ch)
 	}

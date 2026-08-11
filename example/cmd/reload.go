@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -47,7 +47,7 @@ var reloadCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(resp))
+		log.Println(string(resp))
 		os.Exit(0)
 		return nil
 	},

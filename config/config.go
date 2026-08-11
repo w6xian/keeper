@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -50,7 +51,7 @@ func LoadConfig() error {
 			return fmt.Errorf("failed to read config file: %w", err)
 		}
 		// Config file not found, use defaults
-		fmt.Println("Config file not found, using defaults")
+		log.Println("Config file not found, using defaults")
 	}
 
 	if err := viper.Unmarshal(&GlobalConfig); err != nil {

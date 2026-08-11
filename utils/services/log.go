@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/w6xian/sloth/v2"
+	"github.com/w6xian/sloth/v3"
 )
 
 var (

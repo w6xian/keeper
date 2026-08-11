@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -63,7 +64,7 @@ func scanForURL(r io.Reader) {
 		if strings.Contains(line, "trycloudflare.com") {
 			url := extractURL(line)
 			if url != "" {
-				fmt.Printf("\n✔ 隧道已启动: %s\n\n", url)
+				log.Printf("\n✔ 隧道已启动: %s\n\n", url)
 			}
 		}
 		fmt.Fprintln(os.Stderr, line)

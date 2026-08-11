@@ -13,10 +13,10 @@ import (
 	"github.com/w6xian/keeper/registry"
 	"github.com/w6xian/keeper/utils/services"
 
-	"github.com/w6xian/sloth/v2"
-	"github.com/w6xian/sloth/v2/message"
-	"github.com/w6xian/sloth/v2/option"
-	"github.com/w6xian/sloth/v2/types"
+	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v3/message"
+	"github.com/w6xian/sloth/v3/option"
+	"github.com/w6xian/sloth/v3/types"
 	"go.uber.org/zap"
 )
 
@@ -271,9 +271,9 @@ func (d *Dog) Stop() error {
 	defer cancel()
 	status, err := d.clientRpc.Call(ctx, "command.Exit", 200)
 	if err != nil {
-		fmt.Printf("[%s] Exit failed: %v\n", d.Name, err)
+		log.Printf("[%s] Exit failed: %v\n", d.Name, err)
 	} else {
-		fmt.Printf("[%s] Exit success: %s\n", d.Name, string(status))
+		log.Printf("[%s] Exit success: %s\n", d.Name, string(status))
 	}
 	return nil
 }

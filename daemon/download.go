@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -33,7 +34,7 @@ func download(dest string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("正在下载 app...\n")
+	log.Printf("正在下载 app...\n")
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
@@ -64,7 +65,7 @@ func download(dest string) error {
 	if runtime.GOOS != "windows" {
 		os.Chmod(dest, 0755)
 	}
-	fmt.Printf("cloudflared 已下载到 %s\n", dest)
+	log.Printf("cloudflared 已下载到 %s\n", dest)
 	return nil
 }
 
@@ -93,7 +94,7 @@ func extractTgz(r io.Reader, dest string) error {
 				return err
 			}
 			os.Chmod(dest, 0755)
-			fmt.Printf("app 已下载到 %s\n", dest)
+			log.Printf("app 已下载到 %s\n", dest)
 			return nil
 		}
 	}

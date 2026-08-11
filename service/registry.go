@@ -27,11 +27,11 @@ func (s *RegistryService) Deregister(ctx context.Context, req registry.Deregiste
 	return "ok", nil
 }
 
-func (s *RegistryService) Heartbeat(ctx context.Context, req registry.HeartbeatRequest) (string, error) {
+func (s *RegistryService) Heartbeat(ctx context.Context, req registry.HeartbeatRequest) ([]byte, error) {
 	if !s.Store.Heartbeat(req.ServiceName, req.InstanceID) {
-		return "", errors.New("instance not found, please register first")
+		return nil, errors.New("instance not found, please register first")
 	}
-	return "ok", nil
+	return []byte("ok"), nil
 }
 
 func (s *RegistryService) Discovery(ctx context.Context, req registry.DiscoveryRequest) (registry.DiscoveryResponse, error) {
