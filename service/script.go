@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
+	"log"
 	"sync"
 
-	"github.com/w6xian/keeper/logger"
-
 	"github.com/w6xian/gua"
-	"go.uber.org/zap"
 )
 
 type ScriptService struct {
@@ -25,9 +23,9 @@ func NewScriptService() *ScriptService {
 func (s *ScriptService) Run(ctx context.Context, script string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	logger.GetLogger().Info("Executing Lua script", zap.String("script", script))
+	log.Printf("Executing Lua script %s", script)
 	if err := s.Engine.DoString(script); err != nil {
-		logger.GetLogger().Error("Lua script execution failed", zap.Error(err))
+		log.Printf("Lua script execution failed %v", err)
 		return "", err
 	}
 	return "Script executed successfully", nil
@@ -36,9 +34,9 @@ func (s *ScriptService) Run(ctx context.Context, script string) (string, error) 
 func (s *ScriptService) LoadFile(ctx context.Context, filename string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	logger.GetLogger().Info("Loading Lua file", zap.String("filename", filename))
+	log.Printf("Loading Lua file %s", filename)
 	if err := s.Engine.DoFile(filename); err != nil {
-		logger.GetLogger().Error("Lua file execution failed", zap.Error(err))
+		log.Printf("Lua file execution failed %v", err)
 		return "", err
 	}
 	return "File executed successfully", nil

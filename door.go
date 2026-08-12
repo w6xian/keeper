@@ -12,8 +12,6 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
-	"github.com/w6xian/keeper/config"
-	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/fsm"
 
@@ -24,7 +22,6 @@ import (
 
 type Door struct {
 	ctx      context.Context
-	logger   *zap.Logger
 	svrConn  *sloth.Connect
 	addr     string
 	wsPath   string
@@ -39,26 +36,13 @@ type Door struct {
 
 func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Door {
 	wg.Add(1)
-	loggerConfig := logger.Config{
-		Level:      config.GlobalConfig.Log.Level,
-		Filename:   config.GlobalConfig.Log.Filename,
-		MaxSize:    config.GlobalConfig.Log.MaxSize,
-		MaxBackups: config.GlobalConfig.Log.MaxBackups,
-		MaxAge:     config.GlobalConfig.Log.MaxAge,
-		Compress:   config.GlobalConfig.Log.Compress,
-	}
 
-	if err := logger.InitLogger(loggerConfig); err != nil {
-		log.Fatalf("Failed to init logger: %v", err)
-	}
-
-	logger.GetLogger().Info("Dog started", zap.Int("pid", os.Getpid()))
+	log.Printf("Door started %d", os.Getpid())
 
 	d := &Door{
-		ctx:    ctx,
-		logger: logger.GetLogger(),
-		wg:     wg,
-		Name:   ".door",
+		ctx:  ctx,
+		wg:   wg,
+		Name: ".door",
 	}
 	for _, opt := range options {
 		opt(d)
@@ -84,24 +68,20 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 
 	// Register RPC Service
 	if err := d.svrConn.Register("command", service.NewCommand(wg, d), ""); err != nil {
-		d.logger.Fatal("Failed to register RPC", zap.Error(err))
-	}
-	// Register Log Service
-	if err := d.svrConn.Register("log", new(service.LogService), ""); err != nil {
-		d.logger.Fatal("Failed to register Log RPC", zap.Error(err))
+		log.Printf("Failed to register Command RPC %v", err)
 	}
 	// Register Registry Service
 	if err := d.svrConn.Register("registry", service.NewRegistryService(), ""); err != nil {
-		d.logger.Fatal("Failed to register Registry RPC", zap.Error(err))
+		log.Printf("Failed to register Registry RPC %v", zap.Error(err))
 	}
 	// Register Script Service
 	if err := d.svrConn.Register("script", service.NewScriptService(), ""); err != nil {
-		d.logger.Fatal("Failed to register Script RPC", zap.Error(err))
+		log.Printf("Failed to register Script RPC %v", err)
 	}
 	if d.fsmStore != nil {
 		// Register Cache Service
 		if err := d.svrConn.Register("cache", service.NewCache(d.fsmStore), ""); err != nil {
-			d.logger.Fatal("Failed to register Cache RPC", zap.Error(err))
+			log.Printf("Failed to register Cache RPC %v", err)
 		}
 	}
 
@@ -112,7 +92,7 @@ func (d *Door) Start() error {
 	pidFile := pidFilePath(d.Name)
 	pidManager := NewPIDManager(pidFile)
 	if err := pidManager.WritePID(); err != nil {
-		d.logger.Fatal("Failed to write PID file", zap.Error(err))
+		log.Fatalf("Failed to write PID file %v", err)
 		os.Exit(1)
 	}
 	wsr := mux.NewRouter()
@@ -131,7 +111,7 @@ func (d *Door) Execute(args ...string) string {
 	// Default: keeper app
 	exe, err := os.Executable()
 	if err != nil {
-		logger.GetLogger().Fatal("Failed to get executable path", zap.Error(err))
+		log.Fatalf("Failed to get executable path %v", err)
 	}
 	cmdName := exe
 	cmdArgs := []string{}
@@ -154,11 +134,11 @@ func (d *Door) Execute(args ...string) string {
 	}
 
 	if err := cmd.Start(); err != nil {
-		logger.GetLogger().Fatal("Failed to start child process", zap.Error(err))
+		log.Fatalf("Failed to start child process %v", err)
 	}
 	// fmt.Println("------start")
 	if err := cmd.Wait(); err != nil {
-		logger.GetLogger().Fatal("Child process exited with error", zap.Error(err))
+		log.Fatalf("Child process exited with error %v", err)
 	}
 	// fmt.Println("------wait")
 	return d.addr
@@ -167,11 +147,12 @@ func (d *Door) Execute(args ...string) string {
 func (d *Door) TryExecuteFromConfig(c string) error {
 	conf, err := initConfig(c)
 	if err != nil {
-		logger.GetLogger().Error("failed to init config: %w", zap.Error(err))
+		log.Printf("failed to init config: %v", err)
 		return err
 	}
 	ordered, err := sortServices(conf.Services)
 	if err != nil {
+		log.Printf("failed to sort services: %v", err)
 		return err
 	}
 
@@ -233,7 +214,7 @@ func (d *Door) Stop() error {
 	}
 	pidFile := pidFilePath(d.Name)
 	if err := os.Remove(pidFile); err != nil {
-		logger.GetLogger().Error("failed to remove pid file %s: %w", zap.String("pidFile", pidFile), zap.Error(err))
+		log.Printf("failed to remove pid file %s: %v", pidFile, err)
 		return err
 	}
 	return nil

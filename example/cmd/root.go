@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/w6xian/keeper"
-	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/fsm"
 	"go.uber.org/zap"
@@ -70,14 +70,14 @@ var rootCmd = &cobra.Command{
 			defer cancel()
 			fsmStore, err := fsm.NewFSM(fsmType, base)
 			if err != nil {
-				logger.GetLogger().Fatal("Failed to create FSM store", zap.Error(err))
+				log.Fatalf("Failed to create FSM store", zap.Error(err))
 			}
 			defer fsmStore.Close()
 			door := keeper.NewDoor(ctx, wg, keeper.WithDoorAddr("127.0.0.1:"+strconv.Itoa(port)), keeper.WithFSMStore(fsmStore))
 			go func() {
 				err := door.Start()
 				if err != nil {
-					logger.GetLogger().Fatal("Failed to start dog", zap.Error(err))
+					log.Fatalf("Failed to start dog", zap.Error(err))
 				}
 			}()
 			// Wait a bit for server to start
@@ -102,18 +102,18 @@ var rootCmd = &cobra.Command{
 			signal.Notify(signalChan, os.Interrupt)
 			select {
 			case <-wgDone:
-				logger.GetLogger().Info("All goroutines finished")
+				log.Printf("All goroutines finished")
 			case <-ctx.Done():
-				logger.GetLogger().Info("Service stop requested")
+				log.Printf("Service stop requested")
 			case <-signalChan:
-				logger.GetLogger().Info("Shutting down...")
+				log.Printf("Shutting down...")
 			}
 			stop()
 		}
 
 		// Try to run as service first
 		if err := service.Run(serviceName, runFunc); err != nil {
-			logger.GetLogger().Fatal("Service run failed", zap.Error(err))
+			log.Fatalf("Service run failed", zap.Error(err))
 		}
 	},
 }

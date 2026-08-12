@@ -8,20 +8,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/w6xian/keeper/config"
-	"github.com/w6xian/keeper/logger"
 	"github.com/w6xian/keeper/registry"
 	"github.com/w6xian/keeper/utils/services"
 
 	"github.com/w6xian/sloth/v3"
 	"github.com/w6xian/sloth/v3/message"
 	"github.com/w6xian/sloth/v3/option"
-	"go.uber.org/zap"
 )
 
 type Dog struct {
 	ctx             context.Context
-	logger          *zap.Logger
 	addr            string
 	wsPath          string
 	clientRpc       *sloth.ServerRpc
@@ -38,23 +34,9 @@ type Dog struct {
 
 func NewDog(ctx context.Context, addr, wsPath string, options ...DogOption) *Dog {
 
-	loggerConfig := logger.Config{
-		Level:      config.GlobalConfig.Log.Level,
-		Filename:   config.GlobalConfig.Log.Filename,
-		MaxSize:    config.GlobalConfig.Log.MaxSize,
-		MaxBackups: config.GlobalConfig.Log.MaxBackups,
-		MaxAge:     config.GlobalConfig.Log.MaxAge,
-		Compress:   config.GlobalConfig.Log.Compress,
-	}
-
-	if err := logger.InitLogger(loggerConfig); err != nil {
-		log.Fatalf("Failed to init logger: %v", err)
-	}
-
-	logger.GetLogger().Info("Dog started", zap.Int("pid", os.Getpid()))
+	log.Printf("Dog started %d", os.Getpid())
 
 	d := &Dog{
-		logger:      logger.GetLogger(),
 		addr:        addr,
 		wsPath:      wsPath,
 		Name:        "dog",
@@ -129,18 +111,9 @@ func (d *Dog) Stop() error {
 			ServiceName: serviceName,
 			InstanceID:  instanceID,
 		}); err != nil {
-			d.logger.Warn("registry deregister failed",
-				zap.String("dog", d.Name),
-				zap.String("service", serviceName),
-				zap.String("instanceID", instanceID),
-				zap.Error(err),
-			)
+			log.Printf("[%s] %s-%s Deregister failed: %v\n", d.Name, serviceName, instanceID, err)
 		} else {
-			d.logger.Info("registry deregister success",
-				zap.String("dog", d.Name),
-				zap.String("service", serviceName),
-				zap.String("instanceID", instanceID),
-			)
+			log.Printf("[%s] %s-%s Deregister success: %s\n", d.Name, serviceName, instanceID, instanceID)
 		}
 	}
 
@@ -148,9 +121,9 @@ func (d *Dog) Stop() error {
 	defer cancel()
 	status, err := d.clientRpc.Call(ctx, "command.Exit", 200)
 	if err != nil {
-		log.Printf("[%s] Exit failed: %v\n", d.Name, err)
+		log.Printf("[%s] %s-%s Exit failed: %v\n", d.Name, serviceName, instanceID, err)
 	} else {
-		log.Printf("[%s] Exit success: %s\n", d.Name, string(status))
+		log.Printf("[%s] %s-%s Exit success: %s\n", d.Name, serviceName, instanceID, string(status))
 	}
 	return nil
 }
@@ -170,18 +143,9 @@ func (d *Dog) Close() error {
 			ServiceName: serviceName,
 			InstanceID:  instanceID,
 		}); err != nil {
-			d.logger.Warn("registry deregister failed",
-				zap.String("dog", d.Name),
-				zap.String("service", serviceName),
-				zap.String("instanceID", instanceID),
-				zap.Error(err),
-			)
+			log.Printf("[%s] Deregister failed: %v\n", d.Name, err)
 		} else {
-			d.logger.Info("registry deregister success",
-				zap.String("dog", d.Name),
-				zap.String("service", serviceName),
-				zap.String("instanceID", instanceID),
-			)
+			log.Printf("[%s] Close success: %s\n", d.Name, instanceID)
 		}
 	}
 	return nil

@@ -1,10 +1,10 @@
 package registry
 
 import (
+	"log"
 	"sync"
 	"time"
 
-	"github.com/w6xian/keeper/logger"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +36,7 @@ func (s *RegistryStore) Register(instance ServiceInstance) {
 	instance.LastUpdated = time.Now().Unix()
 	instance.Status = 1 // UP
 	s.services[instance.Name][instance.ID] = &instance
-	logger.GetLogger().Info("Service registered", zap.String("name", instance.Name), zap.String("id", instance.ID))
+	log.Printf("Service registered %s %s", instance.Name, instance.ID)
 }
 
 func (s *RegistryStore) Deregister(serviceName, instanceID string) {
@@ -48,7 +48,7 @@ func (s *RegistryStore) Deregister(serviceName, instanceID string) {
 		if len(instances) == 0 {
 			delete(s.services, serviceName)
 		}
-		logger.GetLogger().Info("Service deregistered", zap.String("name", serviceName), zap.String("id", instanceID))
+		log.Printf("Service deregistered", zap.String("name", serviceName), zap.String("id", instanceID))
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *RegistryStore) Heartbeat(serviceName, instanceID string) bool {
 	if instances, ok := s.services[serviceName]; ok {
 		if instance, ok := instances[instanceID]; ok {
 			instance.LastUpdated = time.Now().Unix()
-			// logger.GetLogger().Debug("Heartbeat received", zap.String("name", serviceName), zap.String("id", instanceID))
+			log.Printf("Heartbeat received %s %s", serviceName, instanceID)
 			return true
 		}
 	}
@@ -89,7 +89,7 @@ func (s *RegistryStore) evictionLoop() {
 		for serviceName, instances := range s.services {
 			for id, instance := range instances {
 				if now-instance.LastUpdated > int64(DefaultTTL.Seconds()*3) {
-					logger.GetLogger().Warn("Evicting expired instance", zap.String("name", serviceName), zap.String("id", id))
+					log.Printf("Evicting expired instance %s %s", serviceName, id)
 					delete(instances, id)
 				}
 			}

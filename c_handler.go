@@ -2,11 +2,11 @@ package keeper
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/w6xian/sloth/v3/slots"
 	"github.com/w6xian/sloth/v3/types"
-	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -21,11 +21,7 @@ func (h *Handler) OnClose(ctx context.Context, r *http.Response, c types.IConnRp
 	h.dog.mu.Lock()
 	h.dog.connected = false
 	h.dog.mu.Unlock()
-	h.dog.logger.Warn("dog connection closed",
-		zap.String("dog", h.dog.Name),
-		zap.String("service", h.dog.serviceName),
-		zap.String("instanceID", h.dog.instanceID),
-	)
+	log.Printf("[%s] Dog connection %s closed\n", h.dog.Name, h.dog.serviceName)
 	return nil
 }
 
@@ -35,12 +31,7 @@ func (h *Handler) OnError(ctx context.Context, r *http.Response, c types.IConnRp
 	h.dog.mu.Lock()
 	h.dog.connected = false
 	h.dog.mu.Unlock()
-	h.dog.logger.Warn("dog connection error",
-		zap.String("dog", h.dog.Name),
-		zap.String("service", h.dog.serviceName),
-		zap.String("instanceID", h.dog.instanceID),
-		zap.Error(err),
-	)
+	log.Printf("[%s] Dog connection %s error: %v\n", h.dog.Name, h.dog.serviceName, err)
 	return nil
 }
 
