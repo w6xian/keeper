@@ -1,4 +1,4 @@
-package sloth
+package keeper
 
 import (
 	_ "embed"
