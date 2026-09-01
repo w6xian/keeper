@@ -67,8 +67,6 @@ github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+W
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
-github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
@@ -99,10 +97,10 @@ github.com/tklauser/go-sysconf v0.3.16 h1:frioLaCQSsF5Cy1jgRBrzr6t502KIIwQ0MArYI
 github.com/tklauser/go-sysconf v0.3.16/go.mod h1:/qNL9xxDhc7tx3HSRsLWNnuzbVfh3e7gh/BmM179nYI=
 github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9RXw=
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
-github.com/w6xian/gua v0.0.2 h1:3/nU4Ziipm+4WqwiO4yL372PEYmsTwIhaf4U+uMpLR0=
-github.com/w6xian/gua v0.0.2/go.mod h1:p/I3XKnIpkIDPAKjzhV2JmHlqJ132SjfE1/rYarAnzk=
-github.com/w6xian/sloth/v3 v3.0.4 h1:0e8WhVqWtOzmCFPi2r6xJI9OXFhySBJSYrzzwtJlPEs=
-github.com/w6xian/sloth/v3 v3.0.4/go.mod h1:4c74fjfJq+Y4gyUNi7fhGFaZPHfL8fLYKphp+zLQ8ME=
+github.com/w6xian/gua v0.0.6 h1:Rt6PYmaHnMoMrzyFY9zuqusTFHY1pKoiYtG9pklpCVg=
+github.com/w6xian/gua v0.0.6/go.mod h1:lj/US+s4uQzdJf72PBY+iJ7GSdNNtYIQo61ve6P7vCI=
+github.com/w6xian/sloth/v3 v3.1.4 h1:3FiejhIb9eIO2W58CsZMkv5hes+Grf7A+wqemkaYr7g=
+github.com/w6xian/sloth/v3 v3.1.4/go.mod h1:jJ0cE/pSoE83M9uMaVLWNdRjY11Xetke8/gp3bD+OBw=
 github.com/w6xian/tlv v0.0.5 h1:a3pVpc9ZxTphe26YGh2JSNKAw9KiGkbcu9zqxUxjF7s=
 github.com/w6xian/tlv v0.0.5/go.mod h1:m/e+BcqUOQJg2mfupU2d4vMkadHGYXYqREyHoRb+coM=
 github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=

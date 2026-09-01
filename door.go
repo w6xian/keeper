@@ -88,7 +88,7 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	return d
 }
 
-func (d *Door) Start() error {
+func (d *Door) Start(opts ...option.ConnectOption) error {
 	pidFile := pidFilePath(d.Name)
 	pidManager := NewPIDManager(pidFile)
 	if err := pidManager.WritePID(); err != nil {
@@ -96,8 +96,14 @@ func (d *Door) Start() error {
 		os.Exit(1)
 	}
 	wsr := mux.NewRouter()
-	if err := d.svrConn.Listen(d.ctx, "ws", d.addr,
-		option.WithRouter(wsr, d.wsPath)); err != nil {
+	options := []option.ConnectOption{
+		option.WithRouter(wsr, d.wsPath),
+		option.WithOrigin("*"),
+	}
+	err := d.svrConn.Listen(d.ctx, "ws", d.addr,
+		options...,
+	)
+	if err != nil {
 		return err
 	}
 	// http.Handle("/ws", wsr)
