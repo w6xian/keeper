@@ -49,7 +49,7 @@ var appCmd = &cobra.Command{
 		}
 		app := newApp()
 		d, err := services.Get(ctx, "app")
-		if err != nil {
+		if err != nil || len(d) == 0 {
 			services.Set(ctx, "app", []byte("app"))
 		}
 		// 这是keeper存储的app

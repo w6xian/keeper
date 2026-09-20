@@ -8,9 +8,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/w6xian/gua v0.0.6
-	github.com/w6xian/sloth/v4 v4.0.0
+	github.com/w6xian/sloth/v4 v4.1.0
 	go.etcd.io/bbolt v1.5.0
-	go.uber.org/zap v1.27.1
 	golang.org/x/sys v0.45.0
 )
 
@@ -48,7 +47,6 @@ require (
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.44.0 // indirect
 	golang.org/x/mod v0.29.0 // indirect

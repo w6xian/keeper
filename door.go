@@ -22,12 +22,12 @@ import (
 var ErrRunnerNotStarted = errors.New("keeper: runner not started")
 
 type Door struct {
-	ctx     context.Context
-	svrConn *sloth.Connect
-	addr    string
-	wsPath  string // 仅 WebSocket 传输使用；TCP 传输下无意义（保留字段以免破坏调用方）
-	wg      *sync.WaitGroup
-	Name    string
+	ctx      context.Context
+	svrConn  *sloth.Connect
+	addr     string
+	wsPath   string // 仅 WebSocket 传输使用；TCP 传输下无意义（保留字段以免破坏调用方）
+	wg       *sync.WaitGroup
+	Name     string
 	fsmStore fsm.IFSM
 
 	runnerMu sync.Mutex

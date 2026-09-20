@@ -17,3 +17,5 @@ run/keeper/logs/keeper.log
 .door
 /data
 /example/data/cache.db
+example/bolt.db
+*.db
