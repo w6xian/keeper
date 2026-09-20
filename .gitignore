@@ -19,3 +19,4 @@ run/keeper/logs/keeper.log
 /example/data/cache.db
 example/bolt.db
 *.db
+*.sum
