@@ -14,7 +14,11 @@ func Run(name string, handler func(ctx context.Context)) error {
 	if err != nil {
 		return err
 	}
+	// 两种情况都要 cancel：非服务模式下 handler 返回后 ctx 也应失效，
+	// 旧实现只在 isService 分支创建 ctx 却从不 cancel（context leak）。
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if isService {
 		return svc.Run(name, &serviceHandler{handler: handler, cancel: cancel, ctx: ctx, done: make(chan struct{})})
 	}

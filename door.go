@@ -11,27 +11,33 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/gorilla/mux"
 	"github.com/w6xian/keeper/service"
 	"github.com/w6xian/keeper/utils/fsm"
 
-	"github.com/w6xian/sloth/v3"
-	"github.com/w6xian/sloth/v3/option"
-	"go.uber.org/zap"
+	"github.com/w6xian/sloth/v4"
+	"github.com/w6xian/sloth/v4/option"
 )
 
+// ErrRunnerNotStarted runner 尚未启动（TryExecuteFromConfig 未调用或已结束）。
+var ErrRunnerNotStarted = errors.New("keeper: runner not started")
+
 type Door struct {
-	ctx      context.Context
-	svrConn  *sloth.Connect
-	addr     string
-	wsPath   string
-	wg       *sync.WaitGroup
-	Name     string
+	ctx     context.Context
+	svrConn *sloth.Connect
+	addr    string
+	wsPath  string // 仅 WebSocket 传输使用；TCP 传输下无意义（保留字段以免破坏调用方）
+	wg      *sync.WaitGroup
+	Name    string
 	fsmStore fsm.IFSM
+
 	runnerMu sync.Mutex
 	runner   *keeperRunner
+
 	childMu  sync.Mutex
 	childCmd *exec.Cmd
+
+	stopOnce sync.Once
+	stopped  bool
 }
 
 func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Door {
@@ -47,23 +53,16 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	for _, opt := range options {
 		opt(d)
 	}
+	if d.ctx == nil {
+		d.ctx = context.Background()
+	}
 	if d.addr == "" {
 		d.addr = "127.0.0.1:8965"
 	}
-
-	// 1. Get random port
-	// ln, err := net.Listen("tcp", ":0")
-	// if err != nil {
-	// 	d.logger.Fatal("Failed to listen", zap.Error(err))
-	// }
-	// port := ln.Addr().(*net.TCPAddr).Port
-	// d.addr = fmt.Sprintf("127.0.0.1:%d", port)
-
 	d.wsPath = "/ws"
-	// 2. Start Sloth Server
-	// Create server logic container (ClientRpc handles server-side logic for incoming clients)
+
+	// 服务端逻辑容器（ClientRpc 指"调用目标是客户端"，本进程扮演服务端）
 	clientRpc := sloth.DefaultServer()
-	// Create connection manager
 	d.svrConn = sloth.ServerConn(clientRpc)
 
 	// Register RPC Service
@@ -72,7 +71,7 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	}
 	// Register Registry Service
 	if err := d.svrConn.Register("registry", service.NewRegistryService(), ""); err != nil {
-		log.Printf("Failed to register Registry RPC %v", zap.Error(err))
+		log.Printf("Failed to register Registry RPC %v", err)
 	}
 	// Register Script Service
 	if err := d.svrConn.Register("script", service.NewScriptService(), ""); err != nil {
@@ -88,48 +87,50 @@ func NewDoor(ctx context.Context, wg *sync.WaitGroup, options ...DoorOption) *Do
 	return d
 }
 
+// Start 监听并阻塞服务（TCP 传输）。
+//
+// PID 文件写入失败直接返回错误：旧实现在这里 log.Fatalf + os.Exit，
+// 库代码替调用方决定"进程该死"是越权的，调用方可能还有自己的清理逻辑。
 func (d *Door) Start(opts ...option.ConnectOption) error {
-	pidFile := pidFilePath(d.Name)
-	pidManager := NewPIDManager(pidFile)
+	pidManager := NewPIDManager(pidFilePath(d.Name))
 	if err := pidManager.WritePID(); err != nil {
-		log.Fatalf("Failed to write PID file %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to write PID file: %w", err)
 	}
-	wsr := mux.NewRouter()
-	options := []option.ConnectOption{
-		option.WithRouter(wsr, d.wsPath),
-		option.WithOrigin("*"),
+	// TCP 不需要 HTTP 路由：WithRouter 会 http.Handle(path, router)，
+	// 重复注册同一 pattern 会直接 panic，这里不再注入。
+	if err := d.svrConn.Listen(d.ctx, sloth.TCP, d.addr, opts...); err != nil {
+		return fmt.Errorf("failed to listen %s: %w", d.addr, err)
 	}
-	err := d.svrConn.Listen(d.ctx, "ws", d.addr,
-		options...,
-	)
-	if err != nil {
-		return err
-	}
-	// http.Handle("/ws", wsr)
 	if err := d.svrConn.Serve(); err != nil {
-		return err
+		return fmt.Errorf("serve %s: %w", d.addr, err)
 	}
 	return nil
 }
 
+// Execute 拉起子进程（默认 keeper app），阻塞等待其结束。
+//
+// 失败不再 log.Fatalf（那会直接杀掉调用方进程），错误信息交给返回值。
 func (d *Door) Execute(args ...string) string {
-	// Default: keeper app
+	addr, err := d.ExecuteE(args...)
+	if err != nil {
+		log.Printf("Door execute failed: %v", err)
+	}
+	return addr
+}
+
+// ExecuteE 同 Execute，但把错误交给调用方。
+func (d *Door) ExecuteE(args ...string) (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		log.Fatalf("Failed to get executable path %v", err)
+		return "", fmt.Errorf("failed to get executable path: %w", err)
 	}
-	cmdName := exe
-	cmdArgs := []string{}
-	if len(args) > 0 {
-		cmdArgs = append(cmdArgs, args...)
-	} else {
+	cmdArgs := append([]string{}, args...)
+	if len(cmdArgs) == 0 {
 		cmdArgs = append(cmdArgs, "app")
 	}
 	// Append port and path arguments
 	finalArgs := append(cmdArgs, "--port", d.addr, "--path", d.wsPath)
-	// fmt.Println(cmdName, finalArgs)
-	cmd := exec.Command(cmdName, finalArgs...)
+	cmd := exec.Command(exe, finalArgs...)
 	d.childMu.Lock()
 	d.childCmd = cmd
 	d.childMu.Unlock()
@@ -140,14 +141,12 @@ func (d *Door) Execute(args ...string) string {
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("Failed to start child process %v", err)
+		return "", fmt.Errorf("failed to start child process: %w", err)
 	}
-	// fmt.Println("------start")
 	if err := cmd.Wait(); err != nil {
-		log.Fatalf("Child process exited with error %v", err)
+		return d.addr, fmt.Errorf("child process exited with error: %w", err)
 	}
-	// fmt.Println("------wait")
-	return d.addr
+	return d.addr, nil
 }
 
 func (d *Door) TryExecuteFromConfig(c string) error {
@@ -175,33 +174,37 @@ func (d *Door) TryExecuteFromConfig(c string) error {
 }
 
 func (d *Door) StopService(ctx context.Context, name string) error {
-	d.runnerMu.Lock()
-	runner := d.runner
-	d.runnerMu.Unlock()
-	if runner == nil {
-		return fmt.Errorf("runner not started")
+	runner, err := d.currentRunner()
+	if err != nil {
+		return err
 	}
 	return runner.StopService(name)
 }
 
 func (d *Door) StartService(ctx context.Context, name string) error {
-	d.runnerMu.Lock()
-	runner := d.runner
-	d.runnerMu.Unlock()
-	if runner == nil {
-		return fmt.Errorf("runner not started")
+	runner, err := d.currentRunner()
+	if err != nil {
+		return err
 	}
 	return runner.StartService(name)
 }
 
 func (d *Door) ReloadService(ctx context.Context, name string) error {
+	runner, err := d.currentRunner()
+	if err != nil {
+		return err
+	}
+	return runner.ReloadService(name)
+}
+
+func (d *Door) currentRunner() (*keeperRunner, error) {
 	d.runnerMu.Lock()
 	runner := d.runner
 	d.runnerMu.Unlock()
 	if runner == nil {
-		return fmt.Errorf("runner not started")
+		return nil, ErrRunnerNotStarted
 	}
-	return runner.ReloadService(name)
+	return runner, nil
 }
 
 func (d *Door) setRunner(runner *keeperRunner) {
@@ -210,7 +213,27 @@ func (d *Door) setRunner(runner *keeperRunner) {
 	d.runnerMu.Unlock()
 }
 
+// Stop 停止 Door：关闭监听、终止子进程、删除 PID 文件。幂等，可重复调用。
 func (d *Door) Stop() error {
+	d.stopOnce.Do(func() {
+		d.stopped = true
+	})
+	d.killChild()
+	if d.svrConn != nil {
+		// 关闭 listener 并等待 Serve 的 goroutine 退出（v4 的 Close 会等 serveWg）。
+		if err := d.svrConn.Close(); err != nil {
+			log.Printf("failed to close listener: %v", err)
+		}
+	}
+	pidManager := NewPIDManager(pidFilePath(d.Name))
+	if err := pidManager.RemovePID(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("failed to remove pid file %s: %v", pidManager.GetPIDFile(), err)
+		return err
+	}
+	return nil
+}
+
+func (d *Door) killChild() {
 	d.childMu.Lock()
 	child := d.childCmd
 	d.childCmd = nil
@@ -218,10 +241,4 @@ func (d *Door) Stop() error {
 	if child != nil && child.Process != nil {
 		_ = child.Process.Kill()
 	}
-	pidFile := pidFilePath(d.Name)
-	if err := os.Remove(pidFile); err != nil {
-		log.Printf("failed to remove pid file %s: %v", pidFile, err)
-		return err
-	}
-	return nil
 }

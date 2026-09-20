@@ -2,61 +2,53 @@ package services
 
 import (
 	"context"
-	"fmt"
-	"sync"
 
-	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v4"
 )
 
-var (
-	logOnce sync.Once
-	logSvc  *LogService
-)
+var logClient rpcHolder
 
+// InitLog 绑定 log 服务的 RPC 客户端。
 func InitLog(cli *sloth.ServerRpc) *LogService {
-	logOnce.Do(func() {
-		logSvc = &LogService{cli: cli}
-	})
-	return logSvc
+	logClient.init(cli)
+	return &LogService{}
 }
 
-type LogService struct {
-	cli *sloth.ServerRpc
-}
+type LogService struct{}
 
 func Info(ctx context.Context, msg string) error {
-	newLog := InitLog(nil)
-	if newLog.cli == nil {
-		return fmt.Errorf("log client is nil")
+	cli, err := logClient.get()
+	if err != nil {
+		return err
 	}
-	_, err := newLog.cli.Call(ctx, "log.Info", msg)
+	_, err = cli.Call(ctx, "log.Info", msg)
 	return err
 }
 
 func Debug(ctx context.Context, msg string) error {
-	newLog := InitLog(nil)
-	if newLog.cli == nil {
-		return fmt.Errorf("log client is nil")
+	cli, err := logClient.get()
+	if err != nil {
+		return err
 	}
-	_, err := newLog.cli.Call(ctx, "log.Debug", msg)
+	_, err = cli.Call(ctx, "log.Debug", msg)
 	return err
 }
 
 func Warn(ctx context.Context, msg string) error {
-	newLog := InitLog(nil)
-	if newLog.cli == nil {
-		return fmt.Errorf("log client is nil")
+	cli, err := logClient.get()
+	if err != nil {
+		return err
 	}
-	_, err := newLog.cli.Call(ctx, "log.Warn", msg)
+	_, err = cli.Call(ctx, "log.Warn", msg)
 	return err
 }
 
 func Error(ctx context.Context, msg string) error {
-	newLog := InitLog(nil)
-	if newLog.cli == nil {
-		return fmt.Errorf("log client is nil")
+	cli, err := logClient.get()
+	if err != nil {
+		return err
 	}
-	_, err := newLog.cli.Call(ctx, "log.Error", msg)
+	_, err = cli.Call(ctx, "log.Error", msg)
 	return err
 }
 
@@ -67,10 +59,10 @@ type LogRequest struct {
 }
 
 func Log(ctx context.Context, req LogRequest) error {
-	newLog := InitLog(nil)
-	if newLog.cli == nil {
-		return fmt.Errorf("log client is nil")
+	cli, err := logClient.get()
+	if err != nil {
+		return err
 	}
-	_, err := newLog.cli.Call(ctx, "log.Log", req)
+	_, err = cli.Call(ctx, "log.Log", req)
 	return err
 }

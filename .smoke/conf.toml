@@ -1,0 +1,10 @@
+[[services]]
+name = "example"
+start = "./example.exe app"
+stop = "taskkill /IM example.exe /T /F"
+reload = "./example.exe -s reload"
+restart_limit = 2
+restart_delay = 1
+restart_backoff_max = 60
+restart_backoff_step = 2
+stop_timeout = 5

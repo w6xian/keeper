@@ -77,11 +77,11 @@ func (r *keeperRunner) run() error {
 				continue
 			}
 			if runtime.isRestartDue(now) {
-				runtime.restarts++
-				log.Printf("restarting service: %s, attempt=%d\n", runtime.service.Name, runtime.restarts)
+				attempt := runtime.nextRestartCount()
+				log.Printf("restarting service: %s, attempt=%d\n", runtime.service.Name, attempt)
 				if restartErr := r.start(runtime); restartErr != nil {
 					log.Printf("restart failed: %s, err=%v\n", runtime.service.Name, restartErr)
-					runtime.scheduleRestart(time.Now(), runtime.restarts+1)
+					runtime.scheduleRestart(time.Now(), attempt+1)
 				}
 				continue
 			}
@@ -103,11 +103,11 @@ func (r *keeperRunner) run() error {
 				continue
 			}
 			limit := runtime.service.EffectiveRestartLimit()
-			if limit > 0 && runtime.restarts >= limit {
+			if limit > 0 && runtime.restartCount() >= limit {
 				log.Printf("service restart limit reached: %s, limit=%d\n", runtime.service.Name, runtime.service.EffectiveRestartLimit())
 				continue
 			}
-			runtime.scheduleRestart(now, runtime.restarts+1)
+			runtime.scheduleRestart(now, runtime.restartCount()+1)
 		}
 		time.Sleep(time.Second)
 	}
@@ -270,13 +270,22 @@ func stopService(runtime *serviceRuntime) error {
 		if exitCh != nil {
 			<-exitCh
 		}
-		return nil
 	case err := <-exitCh:
 		if err != nil && !isExitErr(err) {
 			return err
 		}
-		return nil
 	}
+
+	// 进程确认退出后清空句柄：否则 StartService 看到 cmd != nil 会误判"还在跑"，
+	// 直接返回成功却不启动任何东西（stop 之后再也 start 不起来）。
+	runtime.mu.Lock()
+	if runtime.cmd == cmd {
+		runtime.cmd = nil
+		runtime.exitCh = nil
+		runtime.stopRequested = false
+	}
+	runtime.mu.Unlock()
+	return nil
 }
 
 func (s *serviceRuntime) pollExit() (bool, error, bool) {
@@ -328,6 +337,20 @@ func (s *serviceRuntime) disableRestart() {
 	s.pendingRestart = false
 	s.nextRestartAt = time.Time{}
 	s.mu.Unlock()
+}
+
+// nextRestartCount 自增并返回重启次数（run 循环与 runner 的其它方法可能并发访问）。
+func (s *serviceRuntime) nextRestartCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restarts++
+	return s.restarts
+}
+
+func (s *serviceRuntime) restartCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.restarts
 }
 
 func (s *serviceRuntime) isRestartDisabled() bool {
@@ -445,13 +468,23 @@ func isAlreadyDoneErr(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "process already finished")
 }
 
+// buildStartCommand 把服务启动命令和 keeper 注入的参数拼成 shell 要执行的一条命令。
+//
+// 参数必须拼进 shell 要执行的命令串里：sh -c "cmd --port X --path Y"。
+// 旧写法是 append(shellArgs(commandLine), "--port", addr, "--path", wsPath)，
+// 展开后是 sh -c "cmd" --port X --path Y —— 这两个参数会被 sh 当成脚本的
+// 位置参数（$0 / $1），业务进程一个都收不到。
+func buildStartCommand(commandLine, addr, wsPath string) string {
+	return commandLine + " --port " + addr + " --path " + wsPath
+}
+
 func startService(ctx context.Context, service Service, addr, wsPath string) (*exec.Cmd, error) {
 	commandLine := strings.TrimSpace(service.Start)
 	if commandLine == "" {
 		return nil, fmt.Errorf("empty start command")
 	}
-	finalArgs := append(shellArgs(commandLine), "--port", addr, "--path", wsPath)
-	cmd := exec.CommandContext(ctx, shellName(), finalArgs...)
+	full := buildStartCommand(commandLine, addr, wsPath)
+	cmd := exec.CommandContext(ctx, shellName(), shellArgs(full)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

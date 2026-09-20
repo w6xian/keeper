@@ -39,19 +39,20 @@ func (p *PIDManager) WritePID() error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create PID directory: %w", err)
 	}
-	// 文件存在则无法写入
+	// 文件已存在：先确认里面的 PID 是不是本程序还活着，是则拒绝重复启动，
+	// 否则说明是上次崩溃留下的陈旧文件，清理掉继续。
 	if _, err := os.Stat(p.pidFile); err == nil {
 		file, err := os.Open(p.pidFile)
 		if err != nil {
 			return fmt.Errorf("failed to open PID file: %w", err)
 		}
+		// 用 defer 关：旧实现只在成功路径 Close，ReadAll 出错时会漏掉一个 fd。
+		defer file.Close()
 
-		// 不能删除，说明进程还在运行
 		pidBytes, err := io.ReadAll(file)
 		if err != nil {
 			return fmt.Errorf("failed to read PID file: %w", err)
 		}
-		file.Close()
 		pid := strings.TrimSpace(string(pidBytes))
 
 		// 根据pid读进程

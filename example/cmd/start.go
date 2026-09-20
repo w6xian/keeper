@@ -37,7 +37,8 @@ var startCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		dog := keeper.NewDog(ctx, addr, pth, keeper.WithDogName("start-cli"))
+		// 一次性命令：连不上就直接失败，不需要后台重连。
+		dog := keeper.NewDog(ctx, addr, pth, keeper.WithDogName("start-cli"), keeper.WithDogAutoReconnect(false))
 		dog.InitService()
 		if err := dog.KeepAlive(); err != nil {
 			return err

@@ -2,34 +2,26 @@ package services
 
 import (
 	"context"
-	"fmt"
-	"sync"
 
-	"github.com/w6xian/sloth/v3"
+	"github.com/w6xian/sloth/v4"
 )
 
-var (
-	scriptOnce sync.Once
-	script     *ScriptService
-)
+var scriptClient rpcHolder
 
+// InitScript 绑定 script 服务的 RPC 客户端。
 func InitScript(cli *sloth.ServerRpc) *ScriptService {
-	scriptOnce.Do(func() {
-		script = &ScriptService{cli: cli}
-	})
-	return script
+	scriptClient.init(cli)
+	return &ScriptService{}
 }
 
-type ScriptService struct {
-	cli *sloth.ServerRpc
-}
+type ScriptService struct{}
 
 func Run(ctx context.Context, s string) (string, error) {
-	newScript := InitScript(nil)
-	if newScript.cli == nil {
-		return "", fmt.Errorf("script client is nil")
+	cli, err := scriptClient.get()
+	if err != nil {
+		return "", err
 	}
-	resp, err := newScript.cli.Call(ctx, "script.Run", s)
+	resp, err := cli.Call(ctx, "script.Run", s)
 	if err != nil {
 		return "", err
 	}
@@ -37,11 +29,11 @@ func Run(ctx context.Context, s string) (string, error) {
 }
 
 func LoadFile(ctx context.Context, filename string) (string, error) {
-	newScript := InitScript(nil)
-	if newScript.cli == nil {
-		return "", fmt.Errorf("script client is nil")
+	cli, err := scriptClient.get()
+	if err != nil {
+		return "", err
 	}
-	resp, err := newScript.cli.Call(ctx, "script.LoadFile", filename)
+	resp, err := cli.Call(ctx, "script.LoadFile", filename)
 	if err != nil {
 		return "", err
 	}
