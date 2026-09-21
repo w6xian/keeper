@@ -7,7 +7,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/w6xian/gua v0.0.6
+	github.com/w6xian/gua v0.1.0
 	github.com/w6xian/sloth/v4 v4.1.0
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/sys v0.45.0
